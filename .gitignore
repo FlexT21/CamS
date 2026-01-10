@@ -1,1 +1,4 @@
 .venv
+apps/server/users/*
+!.gitkeep
+__pycache__/
