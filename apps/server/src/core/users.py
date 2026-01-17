@@ -2,6 +2,7 @@ from typing import List
 
 from src.core.constants import IMAGE_EXTENSIONS
 from src.core.utils import face_encodings, get_euclidian_distance, load_image_file
+from src.dtypes import Arr
 from src.schemas import FaceEncoding
 from src.utils import USERSDIR
 
@@ -19,12 +20,13 @@ def load_users() -> List[FaceEncoding]:
         ]
 
         # Assume one face per photo
-        encodings = list(
-            map(
-                lambda photo: face_encodings(load_image_file(str(photo)))[0],
-                photos_path,
-            )
-        )
+        # It's unrelated, but Python's `map` is awful to use compared to other languages.
+        encodings = []
+        for photo in photos_path:
+            image = load_image_file(str(photo))
+            photo_encodings = face_encodings(image)
+            if photo_encodings:
+                encodings.append(photo_encodings[0])
 
         users.append(FaceEncoding(user=user.name, encodings=encodings))
 
@@ -33,24 +35,26 @@ def load_users() -> List[FaceEncoding]:
 
 def recognize_user(
     known_users: List[FaceEncoding],
-    encoding_actual: List[float],
-    threshold: float = 1.5,
+    encoding_actual: Arr,
+    threshold: float,
 ) -> tuple[str, float]:
-    min_distance = float("inf")
-    recognized_user = "Unknown"
+    best_user = "Unknown"
+    best_distance = float("inf")
 
     for user in known_users:
         for encoding in user["encodings"]:
-            distance = get_euclidian_distance(encoding, encoding_actual)
-            if distance > min_distance:
-                continue
+            d = get_euclidian_distance(encoding, encoding_actual)
+            if d < best_distance:
+                best_distance = d
+                best_user = user["user"]
 
-            min_distance = distance
-            if min_distance < threshold:
-                recognized_user = user["user"]
+    if best_distance > threshold:
+        best_user = "Unknown"
 
-    return recognized_user, min_distance
+    return best_user, best_distance
 
 
 if __name__ == "__main__":
-    load_users()
+    from pprint import pprint
+
+    pprint(load_users())

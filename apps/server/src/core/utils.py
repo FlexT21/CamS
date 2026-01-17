@@ -1,42 +1,48 @@
 from typing import List
 
 import cv2
+import face_recognition
 import numpy as np
-from mediapipe.python.solutions import face_mesh
+from cv2.typing import MatLike
+
+from src.dtypes import Arr
 
 
-def load_image_file(file_path: str):
-    with face_mesh.FaceMesh(
-        static_image_mode=True,
-        max_num_faces=1,
-        refine_landmarks=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
-    ) as mp_face_mesh:
-        image = cv2.imread(file_path)
-        image.flags.writeable = False
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        return mp_face_mesh.process(image)
+def load_image_file(file_path: str) -> MatLike:
+    image = cv2.imread(file_path, cv2.IMREAD_COLOR)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    return image
 
 
-def face_encodings(image) -> List[List[float]]:
-    if not image:
+def preprocess_image_for_face_recognition(image: MatLike) -> MatLike:
+    # Resize image for faster processing
+    small_image = cv2.resize(image, (0, 0), fx=0.5, fy=0.5)
+    return small_image
+
+
+def face_encodings(image: MatLike) -> List[Arr]:
+    if image is None:
         return []
 
-    face_landmarks = image.multi_face_landmarks
-    encodings = []
+    processed_image = preprocess_image_for_face_recognition(image)
+    encodings = face_recognition.face_encodings(processed_image)
 
-    for landmarks in face_landmarks:
-        encoding = [landmark.x for landmark in landmarks.landmark]
-        encodings.append(encoding)
+    # L2-normalize embeddings to unit length for stable distance comparison
+    encodings = [encoding / np.linalg.norm(encoding) for encoding in encodings]
 
     return encodings
 
 
-def get_euclidian_distance(encoding1: List[float], encoding2: List[float]) -> float:
+def get_euclidian_distance(encoding1: Arr, encoding2: Arr) -> float:
     if len(encoding1) != len(encoding2):
         raise ValueError("Encodings must be of the same length")
 
-    encoding1_np = np.array(encoding1)
-    encoding2_np = np.array(encoding2)
+    if isinstance(encoding1, list):
+        encoding1 = np.array(encoding1)
+    if isinstance(encoding2, list):
+        encoding2 = np.array(encoding2)
+
+    encoding1_np = encoding1.astype(np.float64)
+    encoding2_np = encoding2.astype(np.float64)
+
     return np.linalg.norm(encoding1_np - encoding2_np)

@@ -1,5 +1,5 @@
 import argparse
-from typing import List, TypeVar
+from typing import List
 
 import cv2
 from mediapipe.python.solutions import face_mesh
@@ -7,12 +7,11 @@ from mediapipe.python.solutions import face_mesh
 from src.core.users import load_users, recognize_user
 from src.core.utils import face_encodings
 from src.drawing import draw_face_mesh
+from src.dtypes import Cam
 from src.schemas import FaceEncoding
 
-T = TypeVar("T", int, str)
 
-
-def main(cam: T, threshold: float, *, known_users: List[FaceEncoding]) -> None:
+def main(cam: Cam, threshold: float, *, known_users: List[FaceEncoding]) -> None:
     cap = cv2.VideoCapture(cam)
     with face_mesh.FaceMesh(
         max_num_faces=1,
@@ -41,14 +40,24 @@ def main(cam: T, threshold: float, *, known_users: List[FaceEncoding]) -> None:
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
             if results.multi_face_landmarks:
+                # Draw the face mesh annotations on the image.
+                draw_face_mesh(image, results)
+
+            # Flip the image horizontally for a selfie-view display.
+            flipped_image = cv2.flip(image, 1)
+
+            if results.multi_face_landmarks:
+                # TODO: Implement logic to handle when the face has closed eyes or is not fully visible
+                # and all that kind of stuff to prevent false positives.
+
                 # Face recognition logic
-                encodings = face_encodings(results)
+                encodings = face_encodings(image)
                 if encodings:
                     user, distance = recognize_user(
                         known_users, encodings[0], threshold
                     )
                     cv2.putText(
-                        image,
+                        flipped_image,
                         f"{user}-{distance:.2f}",
                         (10, 50),
                         cv2.FONT_HERSHEY_SIMPLEX,
@@ -61,11 +70,7 @@ def main(cam: T, threshold: float, *, known_users: List[FaceEncoding]) -> None:
                     if user != "Unknown":
                         print(f"Recognized user: {user} with distance: {distance:.2f}")
 
-                # Draw the face mesh annotations on the image.
-                draw_face_mesh(image, results)
-
-            # Flip the image horizontally for a selfie-view display.
-            cv2.imshow("MediaPipe Face Mesh", cv2.flip(image, 1))
+            cv2.imshow("MediaPipe Face Mesh", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
@@ -82,7 +87,7 @@ if __name__ == "__main__":
         "--threshold",
         "-t",
         type=float,
-        default=1.5,
+        default=0.55,
         help="Threshold for face recognition.",
     )
     args = parser.parse_args()
