@@ -4,7 +4,7 @@ from src.core.constants import IMAGE_EXTENSIONS
 from src.core.utils import face_encodings, get_euclidian_distance, load_image_file
 from src.dtypes import Arr
 from src.schemas import FaceEncoding
-from src.utils import USERSDIR
+from src.utils.rootdir import USERSDIR
 
 
 def load_users() -> List[FaceEncoding]:
@@ -29,6 +29,8 @@ def load_users() -> List[FaceEncoding]:
                 encodings.append(photo_encodings[0])
 
         users.append(FaceEncoding(user=user.name, encodings=encodings))
+
+    # TODO: Implement KNN algorithm to optimize the search for large user bases.
 
     return users
 

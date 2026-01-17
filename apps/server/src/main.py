@@ -6,9 +6,9 @@ from mediapipe.python.solutions import face_mesh
 
 from src.core.users import load_users, recognize_user
 from src.core.utils import face_encodings
-from src.drawing import draw_face_mesh
 from src.dtypes import Cam
 from src.schemas import FaceEncoding
+from src.utils.drawing import draw_face_mesh
 
 
 def main(cam: Cam, threshold: float, *, known_users: List[FaceEncoding]) -> None:
