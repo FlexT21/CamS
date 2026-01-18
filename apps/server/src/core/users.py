@@ -44,11 +44,11 @@ def recognize_user(
     best_distance = float("inf")
 
     for user in known_users:
-        for encoding in user["encodings"]:
+        for encoding in user.encodings:
             d = get_euclidian_distance(encoding, encoding_actual)
             if d < best_distance:
                 best_distance = d
-                best_user = user["user"]
+                best_user = user.user
 
     if best_distance > threshold:
         best_user = "Unknown"
