@@ -1,9 +1,12 @@
+import cv2
+import numpy as np
 from fastapi import APIRouter, WebSocket
 
 from src.core.constants import THRESHOLD_DISTANCE
 from src.core.users import known_users
 from src.schemas import WebSocketMessage, WebSocketResponse
 from src.services.users import recognize_user
+from src.utils import face_encodings
 
 router = APIRouter()
 
@@ -12,17 +15,31 @@ router = APIRouter()
 async def recognize_user_endpoint(websocket: WebSocket):
     await websocket.accept()
     while True:
-        data = await websocket.receive_json()
-        message = WebSocketMessage(**data)
+        metadata = await websocket.receive_json()
+        message = WebSocketMessage(**metadata)
+
+        image_data = await websocket.receive_bytes()
+        message.image = image_data
 
         # Send acknowledgment response
         response = WebSocketResponse(frame_id=message.frame_id)
         await websocket.send_json(response.model_dump())
 
+        # Get image from bytes
+        image_bytes = message.image
+        image = cv2.imdecode(
+            np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR
+        )
+
+        # Extract face encodings
+        encodings = face_encodings(image)
+        if not encodings:
+            continue  # No faces detected
+
         # Recognize user based on the received embedding
         result = recognize_user(
             known_users=known_users,
-            current_encoding=message.embedding,
+            current_encoding=encodings,
             threshold=THRESHOLD_DISTANCE,
         )
 
