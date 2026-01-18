@@ -8,6 +8,7 @@
     "editor.formatOnSave": true
   },
   "python.analysis.extraPaths": [
-    "./apps/server"
+    "./apps/server",
+    "./apps/client"
   ]
 }

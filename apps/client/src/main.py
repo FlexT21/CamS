@@ -1,11 +1,13 @@
 import argparse
 from typing import TypeVar
-import requests
+
 import cv2
 from mediapipe.python.solutions import face_mesh
-from drawing import draw_face_mesh
+
+from src.drawing import draw_face_mesh
 
 Cam = TypeVar("Cam", int, str)
+
 
 def main(cam: Cam, threshold: float, *, server_url: str) -> None:
     cap = cv2.VideoCapture(cam)
