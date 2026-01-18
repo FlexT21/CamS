@@ -1,6 +1,0 @@
-opencv-python-headless
-fastapi[standard]
-face-recognition
-face_recognition_models @ git+https://github.com/ageitgey/face_recognition_models@e67de717267507d1e9246de95692eb8be736ab61
-ruff
-scikit-learn
