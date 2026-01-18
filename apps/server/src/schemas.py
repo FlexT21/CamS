@@ -11,6 +11,12 @@ class FaceEncoding(BaseModel):
     encodings: List[Arr]
 
 
+class RecognizeUserResponse(BaseModel):
+    user: str
+    success: bool
+    distance: float
+
+
 class HealthcheckResponse(BaseModel):
     status: str
     message: str

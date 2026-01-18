@@ -1,10 +1,8 @@
 from typing import List
 
 from src.core.constants import IMAGE_EXTENSIONS
-from src.core.utils import face_encodings, get_euclidian_distance, load_image_file
-from src.dtypes import Arr
 from src.schemas import FaceEncoding
-from src.utils.rootdir import USERSDIR
+from src.utils import USERSDIR, face_encodings, load_image_file
 
 
 def load_users() -> List[FaceEncoding]:
@@ -34,29 +32,11 @@ def load_users() -> List[FaceEncoding]:
 
     return users
 
-
-def recognize_user(
-    known_users: List[FaceEncoding],
-    encoding_actual: Arr,
-    threshold: float,
-) -> tuple[str, float]:
-    best_user = "Unknown"
-    best_distance = float("inf")
-
-    for user in known_users:
-        for encoding in user.encodings:
-            d = get_euclidian_distance(encoding, encoding_actual)
-            if d < best_distance:
-                best_distance = d
-                best_user = user.user
-
-    if best_distance > threshold:
-        best_user = "Unknown"
-
-    return best_user, best_distance
+# I'll use an in-memory cache for known users to avoid reloading them on each recognition.
+known_users = load_users()
 
 
 if __name__ == "__main__":
     from pprint import pprint
 
-    pprint(load_users())
+    pprint(known_users)
