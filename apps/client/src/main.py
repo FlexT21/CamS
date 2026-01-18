@@ -1,15 +1,17 @@
 import argparse
+import asyncio
 from typing import TypeVar
 
 import cv2
 from mediapipe.python.solutions import face_mesh
 
 from src.drawing import draw_face_mesh
+from src.request import send_image_to_server
 
 Cam = TypeVar("Cam", int, str)
 
 
-def main(cam: Cam, threshold: float, *, server_url: str) -> None:
+async def main(cam: Cam, *, server_url: str) -> None:
     cap = cv2.VideoCapture(cam)
     with face_mesh.FaceMesh(
         max_num_faces=1,
@@ -37,48 +39,19 @@ def main(cam: Cam, threshold: float, *, server_url: str) -> None:
                 draw_face_mesh(image, results)
 
             flipped_image = cv2.flip(image, 1)
-            """
-            if results.multi_face_landmarks:
-                # Llamar al servidor para el reconocimiento facial
-                try:
-                    # Convertir imagen a bytes
-                    _, img_encoded = cv2.imencode('.jpg', image)
-                    img_bytes = img_encoded.tobytes()
-                    
-                    # Enviar al servidor
-                    response = requests.post(
-                        f"{server_url}/recognize",
-                        json={
-                            "image": img_bytes.hex(),
-                            "threshold": threshold
-                        },
-                        timeout=5
-                    )
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        user = data.get("user", "Unknown")
-                        distance = data.get("distance", 0.0)
-                        
-                        cv2.putText(
-                            flipped_image,
-                            f"{user}-{distance:.2f}",
-                            (10, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (0, 255, 0),
-                            2,
-                            bottomLeftOrigin=False,
-                        )
 
-                        if user != "Unknown":
-                            print(f"Recognized user: {user} with distance: {distance:.2f}")
-                    else:
-                        print(f"Server error: {response.status_code}")
-                        
-                except requests.exceptions.RequestException as e:
-                    print(f"Error connecting to server: {e}")
-            """
+            # Send image to server if face is detected
+            # TODO: Optimize to send at intervals (e.g., 5 FPS), JUST IF liveness probes are previously passed.
+            if results.multi_face_landmarks:
+                _, img_encoded = cv2.imencode(".jpg", image)
+                img_bytes = img_encoded.tobytes()
+                response = await send_image_to_server(
+                    server_url,
+                    frame_id=0,
+                    image=img_bytes,
+                )
+                print(f"Server response: {response}")
+
             cv2.imshow("MediaPipe Face Mesh", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
@@ -93,18 +66,11 @@ if __name__ == "__main__":
         help="Device index of the camera.",
     )
     parser.add_argument(
-        "--threshold",
-        "-t",
-        type=float,
-        default=0.55,
-        help="Threshold for face recognition.",
-    )
-    parser.add_argument(
         "--server",
         "-s",
         type=str,
-        default="http://localhost:8000",
-        help="Server URL for face recognition.",
+        default="ws://localhost:8765/",
+        help="Websocket server URL for face recognition.",
     )
     args = parser.parse_args()
 
@@ -113,7 +79,6 @@ if __name__ == "__main__":
     except ValueError:
         cam_arg = args.cam
 
-    threshold = args.threshold
     server_url = args.server
 
-    main(cam_arg, threshold, server_url=server_url)
+    asyncio.run(main(cam_arg, server_url=server_url))

@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12.10"
 dependencies = [
+    "asyncio>=4.0.0",
     "mediapipe==0.10.20",
     "opencv-python>=4.11.0.86",
     "websockets>=16.0",
