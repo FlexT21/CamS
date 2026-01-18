@@ -1,17 +1,13 @@
 import argparse
-from typing import List
+from typing import TypeVar
 import requests
-
 import cv2
 from mediapipe.python.solutions import face_mesh
+from drawing import draw_face_mesh
 
-from server.src.core.users import load_users
-from server.src.dtypes import Cam
-from server.src.schemas import FaceEncoding
-from server.src.utils.drawing import draw_face_mesh
+Cam = TypeVar("Cam", int, str)
 
-
-def main(cam: Cam, threshold: float, *, known_users: List[FaceEncoding], server_url: str) -> None:
+def main(cam: Cam, threshold: float, *, server_url: str) -> None:
     cap = cv2.VideoCapture(cam)
     with face_mesh.FaceMesh(
         max_num_faces=1,
@@ -39,7 +35,7 @@ def main(cam: Cam, threshold: float, *, known_users: List[FaceEncoding], server_
                 draw_face_mesh(image, results)
 
             flipped_image = cv2.flip(image, 1)
-
+            """
             if results.multi_face_landmarks:
                 # Llamar al servidor para el reconocimiento facial
                 try:
@@ -80,7 +76,7 @@ def main(cam: Cam, threshold: float, *, known_users: List[FaceEncoding], server_
                         
                 except requests.exceptions.RequestException as e:
                     print(f"Error connecting to server: {e}")
-
+            """
             cv2.imshow("MediaPipe Face Mesh", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
@@ -118,6 +114,4 @@ if __name__ == "__main__":
     threshold = args.threshold
     server_url = args.server
 
-    users = load_users()
-
-    main(cam_arg, threshold, known_users=users, server_url=server_url)
+    main(cam_arg, threshold, server_url=server_url)
