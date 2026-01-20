@@ -7,7 +7,6 @@ from websockets.asyncio.client import connect
 async def send_image_to_server(
     server_url: str, *, frame_id: int, image: bytes
 ) -> Dict[str, str]:
-    error = False
     try:
         async with connect(server_url) as websocket:
             metadata_message = {
@@ -25,10 +24,14 @@ async def send_image_to_server(
             response = json.loads(response)
     except Exception as e:
         print(f"Error sending image to server: {e}")
-        error = True
+        return {
+            "type": "error",
+            "status": "failed",
+            "message": f"Error sending image to server: {e}",
+        }
 
-    if response.get("type", "") != "ack" or error:
-        response = {
+    if response.get("type", "") != "ack":
+        return {
             "type": "error",
             "status": "failed",
             "message": "Failed to send image to server or invalid response.",
