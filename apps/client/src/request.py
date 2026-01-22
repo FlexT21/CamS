@@ -1,27 +1,25 @@
 import json
-from typing import Dict
 
-from websockets.asyncio.client import connect
+from src.connection import ServerConnection
+from src.schemas import RequestMetadata, ServerResponse
 
 
 async def send_image_to_server(
-    server_url: str, *, frame_id: int, image: bytes
-) -> Dict[str, str]:
+    connection: ServerConnection, *, frame_id: int, image: bytes
+) -> ServerResponse:
     try:
-        async with connect(server_url) as websocket:
-            metadata_message = {
-                "type": "face_image",
-                "frame_id": frame_id,
-                # This device_id is intended to be unique per client
-                # using .env or other configuration methods in a real application.
-                "device_id": "client_1",
-            }
+        metadata_message: RequestMetadata = {
+            "type": "face_image",
+            "frame_id": frame_id,
+            # This device_id is intended to be unique per client
+            # using .env or other configuration methods in a real application.
+            "device_id": "client_1",
+        }
 
-            await websocket.send(json.dumps(metadata_message), text=True)
-            await websocket.send(image, text=False)
-
-            response = await websocket.recv()
-            response = json.loads(response)
+        await connection.send_message(json.dumps(metadata_message), text=True)
+        await connection.send_message(image, text=False)
+        response_message = await connection.receive_message()
+        response: ServerResponse = json.loads(response_message)
     except Exception as e:
         print(f"Error sending image to server: {e}")
         return {

@@ -5,6 +5,7 @@ from typing import TypeVar
 import cv2
 from mediapipe.python.solutions import face_mesh
 
+from src.connection import ServerConnection
 from src.drawing import draw_face_mesh
 from src.request import send_image_to_server
 
@@ -13,6 +14,10 @@ Cam = TypeVar("Cam", int, str)
 
 async def main(cam: Cam, *, server_url: str) -> None:
     cap = cv2.VideoCapture(cam)
+
+    connection = ServerConnection(server_url)
+    await connection.connect()
+
     with face_mesh.FaceMesh(
         max_num_faces=1,
         refine_landmarks=True,
