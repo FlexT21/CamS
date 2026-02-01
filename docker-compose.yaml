@@ -1,0 +1,36 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883" # MQTT
+      # - "8883:8883" # MQTTS (secure)
+      - "9001:9001" # WebSockets
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+
+  server:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./apps/server/users:/workspace/apps/server/users
+    environment:
+      - SERVER_PREFIX=${SERVER_PREFIX-/api}
+      - SERVER_PORT=${SERVER_PORT-8765}
+      - SERVER_CORS_ORIGINS=${SERVER_CORS_ORIGINS?Variable not set}
+      - VALID_IMAGE_EXTENSIONS=${VALID_IMAGE_EXTENSIONS}
+      - THRESHOLD_DISTANCE=${THRESHOLD_DISTANCE}
+      - K_MEANS_CLUSTERS=${K_MEANS_CLUSTERS}
+      - MQTT_BROKER_ADDRESS=mosquitto
+      - MQTT_BROKER_PORT=1883
+      - MQTT_RETRIES_ATTEMPS=${MQTT_RETRIES_ATTEMPS}
+      - MQTT_RETRY_DELAY_SECONDS=${MQTT_RETRY_DELAY_SECONDS}
+    ports:
+      - "${SERVER_PORT-8765}:${SERVER_PORT-8765}"
+    depends_on:
+      - mosquitto

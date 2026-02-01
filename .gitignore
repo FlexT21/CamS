@@ -5,3 +5,7 @@
 !.gitignore
 !.vscode/
 !.dockerignore
+
+# Mosquito files
+mosquitto/data/
+mosquitto/log/

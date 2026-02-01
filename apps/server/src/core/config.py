@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # MQTT settings
     MQTT_BROKER_ADDRESS: str = "localhost"
     MQTT_BROKER_PORT: int = 1883
+    MQTT_RETRIES_ATTEMPS: int = 5
+    MQTT_RETRY_DELAY_SECONDS: float = 2.0
 
 
 settings = Settings()  # type: ignore
