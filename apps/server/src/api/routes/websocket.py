@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, WebSocket
 
+from src.api.deps import MQTTPublisherDep
 from src.core.config import settings
 from src.core.users import known_users
 from src.schemas import WebSocketMessage, WebSocketResponse
@@ -12,7 +13,7 @@ router = APIRouter()
 
 
 @router.websocket("/")
-async def recognize_user_endpoint(websocket: WebSocket):
+async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisherDep):
     await websocket.accept()
     while True:
         metadata = await websocket.receive_json()
@@ -27,9 +28,7 @@ async def recognize_user_endpoint(websocket: WebSocket):
 
         # Get image from bytes
         image_bytes = message.image
-        image = cv2.imdecode(
-            np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR
-        )
+        image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
 
         # Extract face encodings
         encodings = face_encodings(image)
@@ -44,6 +43,9 @@ async def recognize_user_endpoint(websocket: WebSocket):
         )
 
         if result.success:
-            # TODO: Implement queue broker to send recognized user events to other services.
-            print(f"User {result.user} recognized with distance {result.distance}")
-            pass
+            publisher.publish(
+                topic="user/recognized",
+                message=(
+                    f"User {result.user} recognized with distance {result.distance:.4f}"
+                ),
+            )
