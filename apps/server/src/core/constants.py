@@ -1,4 +1,0 @@
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-API_PREFIX = "/api"
-THRESHOLD_DISTANCE = 0.55
-K_MEANS_CLUSTERS = 3

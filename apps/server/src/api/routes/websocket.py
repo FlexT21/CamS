@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, WebSocket
 
-from src.core.constants import THRESHOLD_DISTANCE
+from src.core.config import settings
 from src.core.users import known_users
 from src.schemas import WebSocketMessage, WebSocketResponse
 from src.services.users import recognize_user
@@ -40,7 +40,7 @@ async def recognize_user_endpoint(websocket: WebSocket):
         result = recognize_user(
             known_users=known_users,
             current_encoding=encodings,
-            threshold=THRESHOLD_DISTANCE,
+            threshold=settings.THRESHOLD_DISTANCE,
         )
 
         if result.success:
