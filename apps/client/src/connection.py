@@ -20,35 +20,34 @@ class ServerConnection:
     async def close(self):
         if self.websocket:
             await self.websocket.close()
+            self.websocket = None
 
     async def _execution_with_retry(self, operation: Callable[[], T]) -> T:
+        last_error: Exception | None = None
         for attempt in range(self.retries):
             try:
-                self.websocket = await connect(self.server_url)
-                return operation()
+                if self.websocket is None:
+                    self.websocket = await connect(self.server_url)
+                return await operation()
             except Exception as e:
+                last_error = e
                 print(f"Connection attempt {attempt + 1} failed: {e}")
+                self.websocket = None
                 if attempt < self.retries - 1:
                     await asyncio.sleep(self.delay)
 
         raise ConnectionError(
             f"Failed to connect to server after {self.retries} attempts."
-        )
+        ) from last_error
 
     async def send_message(self, message: Any, **kwargs: Any) -> None:
         async def operation() -> None:
-            if not self.websocket:
-                return None
-
             return await self.websocket.send(message, **kwargs)
 
         await self._execution_with_retry(operation)
 
     async def receive_message(self) -> Any:
         async def operation() -> Any:
-            if not self.websocket:
-                return ""
-
             return await self.websocket.recv()
 
         return await self._execution_with_retry(operation)

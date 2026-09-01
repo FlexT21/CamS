@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import NotRequired, Optional, TypedDict
 
 
 class RequestMetadata(TypedDict):
@@ -10,4 +10,7 @@ class RequestMetadata(TypedDict):
 class ServerResponse(TypedDict):
     type: str
     status: str
-    message: str
+    message: NotRequired[str]
+    user: NotRequired[str]
+    success: NotRequired[bool]
+    distance: NotRequired[Optional[float]]

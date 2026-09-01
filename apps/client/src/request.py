@@ -28,7 +28,7 @@ async def send_image_to_server(
             "message": f"Error sending image to server: {e}",
         }
 
-    if response.get("type", "") != "ack":
+    if response.get("type", "") != "recognition_result":
         return {
             "type": "error",
             "status": "failed",

@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import time
 from typing import TypeVar
 
 import cv2
@@ -12,11 +13,15 @@ from src.request import send_image_to_server
 Cam = TypeVar("Cam", int, str)
 
 
-async def main(cam: Cam, *, server_url: str) -> None:
+async def main(cam: Cam, *, server_url: str, recognition_interval: float) -> None:
     cap = cv2.VideoCapture(cam)
 
     connection = ServerConnection(server_url)
     await connection.connect()
+
+    last_recognition = 0.0
+    current_user = "Unknown"
+    current_distance = None
 
     with face_mesh.FaceMesh(
         max_num_faces=1,
@@ -33,49 +38,64 @@ async def main(cam: Cam, *, server_url: str) -> None:
                 break
 
             image.flags.writeable = False
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            results = mp_face_mesh.process(image)
-
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            results = mp_face_mesh.process(rgb_image)
             image.flags.writeable = True
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
 
             if results.multi_face_landmarks:
                 draw_face_mesh(image, results)
 
+                current_time = time.monotonic()
+                if current_time - last_recognition >= recognition_interval:
+                    last_recognition = current_time
+
+                    _, img_encoded = cv2.imencode(".jpg", image)
+                    response = await send_image_to_server(
+                        connection,
+                        frame_id=0,
+                        image=img_encoded.tobytes(),
+                    )
+
+                    if response.get("type") == "recognition_result":
+                        current_user = response.get("user", "Unknown")
+                        current_distance = response.get("distance")
+                    print(f"Server response: {response}")
+            else:
+                current_user = "Unknown"
+                current_distance = None
+
             flipped_image = cv2.flip(image, 1)
 
-            # Send image to server if face is detected
-            # TODO: Optimize to send at intervals (e.g., 5 FPS), JUST IF liveness probes are previously passed.
-            if results.multi_face_landmarks:
-                _, img_encoded = cv2.imencode(".jpg", image)
-                img_bytes = img_encoded.tobytes()
-                response = await send_image_to_server(
-                    server_url,
-                    frame_id=0,
-                    image=img_bytes,
-                )
-                print(f"Server response: {response}")
+            label = f"{current_user}"
+            if current_distance is not None:
+                label += f" - {current_distance:.2f}"
+
+            cv2.putText(
+                flipped_image, label, (10, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2,
+            )
 
             cv2.imshow("MediaPipe Face Mesh", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
+    cap.release()
+    cv2.destroyAllWindows()
+    await connection.close()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("cam", type=str, nargs="?", default="0")
     parser.add_argument(
-        "cam",
-        type=str,
-        default="0",
-        help="Device index of the camera.",
+        "--server", "-s", type=str,
+        default="ws://localhost:8765/api/ws/",
+        help="Websocket server URL for face recognition.",
     )
     parser.add_argument(
-        "--server",
-        "-s",
-        type=str,
-        default="ws://localhost:8765/",
-        help="Websocket server URL for face recognition.",
+        "--interval", type=float, default=1.0,
+        help="Seconds between recognition attempts sent to the server.",
     )
     args = parser.parse_args()
 
@@ -84,6 +104,4 @@ if __name__ == "__main__":
     except ValueError:
         cam_arg = args.cam
 
-    server_url = args.server
-
-    asyncio.run(main(cam_arg, server_url=server_url))
+    asyncio.run(main(cam_arg, server_url=args.server, recognition_interval=args.interval))

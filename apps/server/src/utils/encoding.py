@@ -21,9 +21,6 @@ def face_encodings(image: MatLike) -> List[Arr]:
     processed_image = preprocess_image_for_face_recognition(image)
     encodings = face_recognition.face_encodings(processed_image)
 
-    # L2-normalize embeddings to unit length for stable distance comparison
-    encodings = [encoding / np.linalg.norm(encoding) for encoding in encodings]
-
     return encodings
 
 

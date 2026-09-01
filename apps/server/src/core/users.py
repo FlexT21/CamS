@@ -1,5 +1,4 @@
-from typing import List
-
+import numpy as np
 from sklearn.cluster import KMeans
 
 from src.core.config import settings
@@ -19,8 +18,6 @@ def load_users() -> List[FaceEncoding]:
             if user_photo.suffix.lower() in settings.VALID_IMAGE_EXTENSIONS
         ]
 
-        # Assume one face per photo
-        # It's unrelated, but Python's `map` is awful to use compared to other languages.
         encodings = []
         for photo in photos_path:
             image = load_image_file(str(photo))
@@ -28,7 +25,6 @@ def load_users() -> List[FaceEncoding]:
             if photo_encodings:
                 encodings.append(photo_encodings[0])
 
-        # Implement KMeans algorithm to optimize the search for large user bases.
         if len(encodings) >= settings.K_MEANS_CLUSTERS:
             kmeans = KMeans(n_clusters=settings.K_MEANS_CLUSTERS, random_state=37)
             kmeans.fit(encodings)
@@ -37,13 +33,3 @@ def load_users() -> List[FaceEncoding]:
         users.append(FaceEncoding(user=user.name, encodings=encodings))
 
     return users
-
-
-# I'll use an in-memory cache for known users to avoid reloading them on each recognition.
-known_users = load_users()
-
-
-if __name__ == "__main__":
-    from pprint import pprint
-
-    pprint(known_users)
