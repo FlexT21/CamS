@@ -1,4 +1,5 @@
-import numpy as np
+from typing import List
+
 from sklearn.cluster import KMeans
 
 from src.core.config import settings
@@ -33,3 +34,7 @@ def load_users() -> List[FaceEncoding]:
         users.append(FaceEncoding(user=user.name, encodings=encodings))
 
     return users
+
+
+# I'll use an in-memory cache for known users to avoid reloading them on each recognition.
+known_users = load_users()
