@@ -29,6 +29,9 @@ async def main(cam: Cam, *, server_url: str, recognition_interval: float) -> Non
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
     ) as mp_face_mesh:
+        cap = cv2.VideoCapture(cam)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         while cap.isOpened():
             success, image = cap.read()
             if not success:

@@ -10,8 +10,8 @@ from src.dtypes import Arr
 
 def preprocess_image_for_face_recognition(image: MatLike) -> MatLike:
     # Resize image for faster processing
-    small_image = cv2.resize(image, (0, 0), fx=0.5, fy=0.5)
-    return small_image
+    # small_image = cv2.resize(image, (0, 0), fx=0.5, fy=0.5)
+    return image
 
 
 def face_encodings(image: MatLike) -> List[Arr]:
