@@ -5,7 +5,9 @@ from typing import TypeVar
 
 import cv2
 from mediapipe.python.solutions import face_mesh
+from mediapipe.python.solutions import face_detection
 
+from src.direction_tracker import Direction, PersonTrack
 from src.connection import ServerConnection
 from src.drawing import draw_face_mesh
 from src.request import send_image_to_server
@@ -13,73 +15,62 @@ from src.request import send_image_to_server
 Cam = TypeVar("Cam", int, str)
 
 
-async def main(cam: Cam, *, server_url: str, recognition_interval: float) -> None:
+async def main(cam, *, server_url: str, recognition_interval: float) -> None:
     cap = cv2.VideoCapture(cam)
-
     connection = ServerConnection(server_url)
     await connection.connect()
 
-    last_recognition = 0.0
-    current_user = "Unknown"
-    current_distance = None
+    track: PersonTrack | None = None
 
-    with face_mesh.FaceMesh(
-        max_num_faces=1,
-        refine_landmarks=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
-    ) as mp_face_mesh:
-        cap = cv2.VideoCapture(cam)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    with face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as face_detector:
         while cap.isOpened():
             success, image = cap.read()
             if not success:
-                print("Ignoring empty camera frame.")
-                if isinstance(cam, int):
-                    continue
-                break
+                continue
 
-            image.flags.writeable = False
+            h, w = image.shape[:2]
+            cv2.line(image, (w // 2, 0), (w // 2, h), (255, 0, 0), 2)
+
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = mp_face_mesh.process(rgb_image)
-            image.flags.writeable = True
-            image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+            results = face_detector.process(rgb_image)
 
-            if results.multi_face_landmarks:
-                draw_face_mesh(image, results)
+            centroid_x = None
+            if results.detections:
+                bbox = results.detections[0].location_data.relative_bounding_box
+                centroid_x = (bbox.xmin + bbox.width / 2) * w
+                cv2.circle(image, (int(centroid_x), int(bbox.ymin * h)), 6, (0, 0, 255), -1)
 
-                current_time = time.monotonic()
-                if current_time - last_recognition >= recognition_interval:
-                    last_recognition = current_time
+            if centroid_x is not None:
+                if track is None:
+                    margin = int(w * 0.08)
+                    track = PersonTrack(center_x=w // 2, left_zone_x=w // 2 - margin, right_zone_x=w // 2 + margin)
 
+                event = track.update(centroid_x)
+
+                # dispara reconocimiento una sola vez por track, cuando pasa por la zona frontal
+                if (
+                    track.recognized_user is None
+                    and not track.recognition_pending
+                    and track.is_in_recognition_zone(centroid_x)
+                ):
+                    track.recognition_pending = True
                     _, img_encoded = cv2.imencode(".jpg", image)
-                    response = await send_image_to_server(
-                        connection,
-                        frame_id=0,
-                        image=img_encoded.tobytes(),
-                    )
+                    response = await send_image_to_server(connection, frame_id=0, image=img_encoded.tobytes())
+                    if response.get("success"):
+                        track.recognized_user = response.get("user")
+                    track.recognition_pending = False
 
-                    if response.get("type") == "recognition_result":
-                        current_user = response.get("user", "Unknown")
-                        current_distance = response.get("distance")
-                    print(f"Server response: {response}")
-            else:
-                current_user = "Unknown"
-                current_distance = None
+                if event is not None:
+                    user = track.recognized_user or "Desconocido"
+                    print(f"Evento: {event.value.upper()} — usuario: {user}")
+                    # aquí publicas/registras el evento con user + event.value
+                    track = None  # el cruce ya se cerró, se libera el track
 
-            flipped_image = cv2.flip(image, 1)
+            elif track is not None and track.mark_missed():
+                # se perdió de vista sin llegar a cruzar del todo -> se descarta
+                track = None
 
-            label = f"{current_user}"
-            if current_distance is not None:
-                label += f" - {current_distance:.2f}"
-
-            cv2.putText(
-                flipped_image, label, (10, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2,
-            )
-
-            cv2.imshow("MediaPipe Face Mesh", flipped_image)
+            cv2.imshow("CamS", cv2.flip(image, 1))
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 
