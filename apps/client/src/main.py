@@ -4,8 +4,7 @@ import time
 from typing import TypeVar
 
 import cv2
-from mediapipe.python.solutions import face_mesh
-from mediapipe.python.solutions import face_detection
+from mediapipe.python.solutions import face_detection, face_mesh as mp_face_mesh_module
 
 from src.direction_tracker import Direction, PersonTrack
 from src.connection import ServerConnection
@@ -22,7 +21,13 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
 
     track: PersonTrack | None = None
 
-    with face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as face_detector:
+    with (
+        face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as face_detector,
+        mp_face_mesh_module.FaceMesh(
+            max_num_faces=1, refine_landmarks=True,
+            min_detection_confidence=0.5, min_tracking_confidence=0.5,
+        ) as mesh_detector,
+    ):
         while cap.isOpened():
             success, image = cap.read()
             if not success:
@@ -32,42 +37,42 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
             cv2.line(image, (w // 2, 0), (w // 2, h), (255, 0, 0), 2)
 
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = face_detector.process(rgb_image)
 
+            # 1. Tracking continuo, siempre activo
+            detection_results = face_detector.process(rgb_image)
             centroid_x = None
-            if results.detections:
-                bbox = results.detections[0].location_data.relative_bounding_box
+            if detection_results.detections:
+                bbox = detection_results.detections[0].location_data.relative_bounding_box
                 centroid_x = (bbox.xmin + bbox.width / 2) * w
-                cv2.circle(image, (int(centroid_x), int(bbox.ymin * h)), 6, (0, 0, 255), -1)
 
             if centroid_x is not None:
                 if track is None:
                     margin = int(w * 0.08)
                     track = PersonTrack(center_x=w // 2, left_zone_x=w // 2 - margin, right_zone_x=w // 2 + margin)
 
+                # 2. Solo dentro de la zona de reconocimiento se corre FaceMesh (visual) + reconocimiento
+                if track.is_in_recognition_zone(centroid_x):
+                    mesh_results = mesh_detector.process(rgb_image)
+                    if mesh_results.multi_face_landmarks:
+                        draw_face_mesh(image, mesh_results)
+
+                    if track.recognized_user is None and not track.recognition_pending:
+                        track.recognition_pending = True
+                        _, img_encoded = cv2.imencode(".jpg", image)
+                        response = await send_image_to_server(connection, frame_id=0, image=img_encoded.tobytes())
+                        if response.get("success"):
+                            track.recognized_user = response.get("user")
+                        track.recognition_pending = False
+                else:
+                    cv2.circle(image, (int(centroid_x), int(bbox.ymin * h)), 6, (0, 0, 255), -1)
+
                 event = track.update(centroid_x)
-
-                # dispara reconocimiento una sola vez por track, cuando pasa por la zona frontal
-                if (
-                    track.recognized_user is None
-                    and not track.recognition_pending
-                    and track.is_in_recognition_zone(centroid_x)
-                ):
-                    track.recognition_pending = True
-                    _, img_encoded = cv2.imencode(".jpg", image)
-                    response = await send_image_to_server(connection, frame_id=0, image=img_encoded.tobytes())
-                    if response.get("success"):
-                        track.recognized_user = response.get("user")
-                    track.recognition_pending = False
-
                 if event is not None:
                     user = track.recognized_user or "Desconocido"
                     print(f"Evento: {event.value.upper()} — usuario: {user}")
-                    # aquí publicas/registras el evento con user + event.value
-                    track = None  # el cruce ya se cerró, se libera el track
+                    track = None
 
             elif track is not None and track.mark_missed():
-                # se perdió de vista sin llegar a cruzar del todo -> se descarta
                 track = None
 
             cv2.imshow("CamS", cv2.flip(image, 1))

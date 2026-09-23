@@ -24,3 +24,8 @@ def draw_face_mesh(image, results) -> None:
             landmark_drawing_spec=None,
             connection_drawing_spec=drawing_styles.get_default_face_mesh_iris_connections_style(),
         )
+
+def get_face_centroid(face_landmarks, image_width: int, image_height: int) -> tuple[float, float]:
+    xs = [lm.x * image_width for lm in face_landmarks.landmark]
+    ys = [lm.y * image_height for lm in face_landmarks.landmark]
+    return sum(xs) / len(xs), sum(ys) / len(ys)
