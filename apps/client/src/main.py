@@ -8,7 +8,7 @@ from mediapipe.python.solutions import face_detection, face_mesh as mp_face_mesh
 
 from src.direction_tracker import Direction, PersonTrack
 from src.connection import ServerConnection
-from src.drawing import draw_face_mesh
+from src.drawing import compute_display_vector, draw_face_mesh, draw_direction_vector
 from src.request import send_image_to_server
 
 Cam = TypeVar("Cam", int, str)
@@ -41,11 +41,16 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
             # 1. Tracking continuo, siempre activo
             detection_results = face_detector.process(rgb_image)
             centroid_x = None
+            centroid_y = None
             if detection_results.detections:
                 bbox = detection_results.detections[0].location_data.relative_bounding_box
                 centroid_x = (bbox.xmin + bbox.width / 2) * w
+                centroid_y = (bbox.ymin + bbox.height / 2) * h
 
+            flipped_image = cv2.flip(image, 1)
             if centroid_x is not None:
+                vector = compute_display_vector(centroid_x, centroid_y, w, h)
+                draw_direction_vector(flipped_image, vector)
                 if track is None:
                     margin = int(w * 0.08)
                     track = PersonTrack(center_x=w // 2, left_zone_x=w // 2 - margin, right_zone_x=w // 2 + margin)
@@ -75,7 +80,7 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
             elif track is not None and track.mark_missed():
                 track = None
 
-            cv2.imshow("CamS", cv2.flip(image, 1))
+            cv2.imshow("CamS", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
 

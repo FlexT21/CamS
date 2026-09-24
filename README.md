@@ -83,7 +83,7 @@ apps/server/users/
     └── sonrisa.jpg
 ```
 
-El nombre de la carpeta es el nombre que aparecerá en el resultado del reconocimiento. Las imágenes deben contener un rostro detectable. Las fotografías sin rostro se ignoran.
+El nombre de la carpeta es el nombre que aparecerá en el resultado del reconocimiento. Las imágenes deben contener un rostro detectable. Las fotografías sin rostro se ignoran. De manera local el servidor carga esta información una sola vez al iniciar, por lo que debes reiniciarlo después de agregar, eliminar o modificar fotografías.
 
 Se recomienda usar al menos `K_MEANS_CLUSTERS` imágenes válidas por usuario. Con el valor predeterminado, son tres imágenes por usuario. Esta carpeta está ignorada por Git para evitar subir datos biométricos; conserva las fotografías fuera del repositorio y monta o copia los datos en cada entorno.
 
@@ -164,6 +164,8 @@ Opciones disponibles:
 
 Pulsa `Esc` en la ventana de vídeo para cerrar el cliente.
 
+Durante la ejecución, el cliente muestra una línea central y un vector desde el centro de la imagen hasta el rostro detectado. El reconocimiento se solicita cuando la persona se encuentra en la zona central; al cruzar de izquierda a derecha se genera un evento de `entrada` y al cruzar de derecha a izquierda un evento de `salida`.
+
 ## Protocolo WebSocket
 
 Cada solicitud se envía como dos mensajes consecutivos:
@@ -237,7 +239,7 @@ El broker está configurado actualmente con acceso anónimo y sin TLS. Esa confi
 .
 ├── apps/
 │   ├── client/
-│   │   ├── src/              # Captura, MediaPipe y cliente WebSocket
+│   │   ├── src/              # Captura, tracking, MediaPipe y cliente WebSocket
 │   │   ├── pyproject.toml
 │   │   └── requirements.txt
 │   └── server/
