@@ -23,6 +23,8 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
 
             image_data = await websocket.receive_bytes()
             image = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
+            if image is not None:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
             encodings = face_encodings(image)
             if not encodings:

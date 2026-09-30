@@ -29,6 +29,12 @@ async def recognize_track(connection, track: PersonTrack, image_bytes: bytes) ->
         )
         if response.get("success"):
             track.recognized_user = response.get("user")
+        else:
+            print(
+                "Reconocimiento sin coincidencia: "
+                f"estado={response.get('status')}, "
+                f"distancia={response.get('distance')}"
+            )
     except Exception as error:
         print(f"Reconocimiento omitido: {error}")
     finally:
@@ -41,7 +47,6 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
     await connection.connect()
 
     track: PersonTrack | None = None
-    recognition_task: asyncio.Task | None = None
     entered = 0
     exited = 0
 
@@ -95,16 +100,13 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
                     if (
                         track.recognized_user is None
                         and not track.recognition_pending
-                        and (recognition_task is None or recognition_task.done())
                     ):
                         track.recognition_pending = True
                         _, img_encoded = cv2.imencode(".jpg", image)
-                        recognition_task = asyncio.create_task(
-                            recognize_track(
-                                connection,
-                                track,
-                                img_encoded.tobytes(),
-                            )
+                        await recognize_track(
+                            connection,
+                            track,
+                            img_encoded.tobytes(),
                         )
                 else:
                     cv2.circle(image, (int(centroid_x), int(bbox.ymin * h)), 6, (0, 0, 255), -1)

@@ -27,7 +27,7 @@ class PersonTrack:
 
         The client mirrors the camera image before showing it. Tracking uses
         that same displayed coordinate system so the meaning of the movement
-        matches what the operator sees: right -> left is an exit.
+        matches what the operator sees.
         """
         if centroid_x <= self.line_x - self.dead_zone:
             return "left"
@@ -54,9 +54,7 @@ class PersonTrack:
 
         event = None
         if self.last_side is not None and side != self.last_side:
-            # En la imagen mostrada: derecha -> izquierda = salida;
-            # izquierda -> derecha = entrada.
-            event = Direction.SALIDA if side == "left" else Direction.ENTRADA
+            event = Direction.ENTRADA if side == "left" else Direction.SALIDA
 
         self.last_side = side
         return event

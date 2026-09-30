@@ -164,7 +164,7 @@ Opciones disponibles:
 
 Pulsa `Esc` en la ventana de vídeo para cerrar el cliente.
 
-Durante la ejecución, el cliente muestra una línea azul punteada cerca del borde derecho, un vector desde el centro de la imagen hasta el rostro detectado y los contadores de personas. El reconocimiento se solicita cuando la persona se encuentra cerca de la línea; al cruzar de derecha a izquierda se genera un evento de `salida`, mientras que al cruzar de izquierda a derecha se genera un evento de `entrada`. El total dentro se calcula como entradas menos salidas.
+Durante la ejecución, el cliente muestra una línea azul punteada cerca del borde derecho, un vector desde el centro de la imagen hasta el rostro detectado y los contadores de personas. El reconocimiento se solicita cuando la persona se encuentra cerca de la línea; al cruzar de derecha a izquierda se genera un evento de `entrada`, mientras que al cruzar de izquierda a derecha se genera un evento de `salida`. El total dentro se calcula como entradas menos salidas.
 
 ## Protocolo WebSocket
 
