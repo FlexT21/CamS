@@ -3,6 +3,42 @@ import math
 from dataclasses import dataclass
 import cv2
 
+
+def draw_dashed_line(image, x: int, color: tuple[int, int, int],
+                     dash_length: int = 18, gap_length: int = 12) -> None:
+    """Draw a vertical dashed line using OpenCV's BGR color convention."""
+    height = image.shape[0]
+    for y in range(0, height, dash_length + gap_length):
+        cv2.line(
+            image,
+            (x, y),
+            (x, min(y + dash_length, height - 1)),
+            color,
+            2,
+            cv2.LINE_AA,
+        )
+
+
+def draw_counter(image, entered: int, exited: int, inside: int) -> None:
+    """Draw the current occupancy counters on the displayed frame."""
+    lines = (
+        f"Ingresaron: {entered}",
+        f"Salieron: {exited}",
+        f"Dentro: {inside}",
+    )
+    for index, text in enumerate(lines):
+        cv2.putText(
+            image,
+            text,
+            (18, 32 + index * 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
+
 def draw_face_mesh(image, results) -> None:
     for face_landmarks in results.multi_face_landmarks:
         drawing_utils.draw_landmarks(

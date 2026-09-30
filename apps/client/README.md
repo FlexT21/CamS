@@ -32,7 +32,7 @@ uv run python -m src.main video.mp4 --server ws://localhost:8765/api/ws/
 
 Pulsa `Esc` en la ventana de vídeo para cerrar el cliente.
 
-La ventana muestra la línea central, el centroide detectado y un vector de dirección. El cliente solicita el reconocimiento en la zona central y registra un cruce como `entrada` de izquierda a derecha o `salida` de derecha a izquierda.
+La ventana muestra una línea azul punteada cerca del borde derecho, el centroide detectado, un vector de dirección y los contadores de `Ingresaron`, `Salieron` y `Dentro`. En la imagen mostrada, un cruce de derecha a izquierda se registra como `salida`; uno de izquierda a derecha se registra como `entrada`.
 
 ## Opciones
 

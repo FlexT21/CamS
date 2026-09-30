@@ -14,6 +14,7 @@ def project_root(anchor: str = "pyproject.toml"):
 ROOTDIR = project_root()
 SRCDIR = ROOTDIR / "src"
 USERSDIR = ROOTDIR / "users"
+USERSDIR.mkdir(parents=True, exist_ok=True)
 
 if __name__ == "__main__":
     import sys

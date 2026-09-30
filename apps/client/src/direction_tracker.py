@@ -11,9 +11,8 @@ class Direction(Enum):
 
 @dataclass
 class PersonTrack:
-    center_x: int
-    left_zone_x: int
-    right_zone_x: int
+    line_x: int
+    dead_zone: int = 12
     max_missed_frames: int = 8
 
     last_centroid_x: float = 0.0
@@ -24,17 +23,23 @@ class PersonTrack:
     recognition_pending: bool = False
 
     def side_of(self, centroid_x: float) -> Optional[str]:
-        if centroid_x <= self.left_zone_x:
+        """Return the side of the counting line in the displayed image.
+
+        The client mirrors the camera image before showing it. Tracking uses
+        that same displayed coordinate system so the meaning of the movement
+        matches what the operator sees: right -> left is an exit.
+        """
+        if centroid_x <= self.line_x - self.dead_zone:
             return "left"
-        if centroid_x >= self.right_zone_x:
+        if centroid_x >= self.line_x + self.dead_zone:
             return "right"
         return None
 
     def is_in_recognition_zone(self, centroid_x: float) -> bool:
         # zona amplia alrededor del centro, donde asumimos que la persona
         # queda razonablemente de frente a la cámara durante el cruce
-        margin = (self.right_zone_x - self.left_zone_x) * 1.5
-        return (self.center_x - margin) <= centroid_x <= (self.center_x + margin)
+        margin = max(self.dead_zone * 3, 80)
+        return (self.line_x - margin) <= centroid_x <= (self.line_x + margin)
 
     def update(self, centroid_x: float) -> Optional[Direction]:
         self.last_centroid_x = centroid_x
@@ -48,9 +53,10 @@ class PersonTrack:
             self.start_side = side
 
         event = None
-        if self.last_side is not None and side != self.last_side and side != self.start_side:
-            # cruzó al lado contrario de donde empezó -> cruce confirmado
-            event = Direction.ENTRADA if side == "right" else Direction.SALIDA
+        if self.last_side is not None and side != self.last_side:
+            # En la imagen mostrada: derecha -> izquierda = salida;
+            # izquierda -> derecha = entrada.
+            event = Direction.SALIDA if side == "left" else Direction.ENTRADA
 
         self.last_side = side
         return event

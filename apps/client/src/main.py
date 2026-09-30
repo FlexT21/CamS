@@ -8,10 +8,31 @@ from mediapipe.python.solutions import face_detection, face_mesh as mp_face_mesh
 
 from src.direction_tracker import Direction, PersonTrack
 from src.connection import ServerConnection
-from src.drawing import compute_display_vector, draw_face_mesh, draw_direction_vector
+from src.drawing import (
+    compute_display_vector,
+    draw_counter,
+    draw_dashed_line,
+    draw_face_mesh,
+    draw_direction_vector,
+)
 from src.request import send_image_to_server
 
 Cam = TypeVar("Cam", int, str)
+
+
+async def recognize_track(connection, track: PersonTrack, image_bytes: bytes) -> None:
+    """Recognize a track without blocking the camera loop indefinitely."""
+    try:
+        response = await asyncio.wait_for(
+            send_image_to_server(connection, frame_id=0, image=image_bytes),
+            timeout=2.5,
+        )
+        if response.get("success"):
+            track.recognized_user = response.get("user")
+    except Exception as error:
+        print(f"Reconocimiento omitido: {error}")
+    finally:
+        track.recognition_pending = False
 
 
 async def main(cam, *, server_url: str, recognition_interval: float) -> None:
@@ -20,6 +41,9 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
     await connection.connect()
 
     track: PersonTrack | None = None
+    recognition_task: asyncio.Task | None = None
+    entered = 0
+    exited = 0
 
     with (
         face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as face_detector,
@@ -34,7 +58,11 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
                 continue
 
             h, w = image.shape[:2]
-            cv2.line(image, (w // 2, 0), (w // 2, h), (255, 0, 0), 2)
+            # La línea se dibuja en el frame original y luego se espeja para
+            # que aparezca en el lado derecho de la ventana.
+            line_x_display = int(w * 0.82)
+            line_x_source = w - line_x_display
+            draw_dashed_line(image, line_x_source, (255, 0, 0))
 
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -49,37 +77,56 @@ async def main(cam, *, server_url: str, recognition_interval: float) -> None:
 
             flipped_image = cv2.flip(image, 1)
             if centroid_x is not None:
+                display_centroid_x = w - centroid_x
                 vector = compute_display_vector(centroid_x, centroid_y, w, h)
                 draw_direction_vector(flipped_image, vector)
                 if track is None:
-                    margin = int(w * 0.08)
-                    track = PersonTrack(center_x=w // 2, left_zone_x=w // 2 - margin, right_zone_x=w // 2 + margin)
+                    track = PersonTrack(
+                        line_x=line_x_display,
+                        dead_zone=max(10, int(w * 0.015)),
+                    )
 
                 # 2. Solo dentro de la zona de reconocimiento se corre FaceMesh (visual) + reconocimiento
-                if track.is_in_recognition_zone(centroid_x):
+                if track.is_in_recognition_zone(display_centroid_x):
                     mesh_results = mesh_detector.process(rgb_image)
                     if mesh_results.multi_face_landmarks:
                         draw_face_mesh(image, mesh_results)
 
-                    if track.recognized_user is None and not track.recognition_pending:
+                    if (
+                        track.recognized_user is None
+                        and not track.recognition_pending
+                        and (recognition_task is None or recognition_task.done())
+                    ):
                         track.recognition_pending = True
                         _, img_encoded = cv2.imencode(".jpg", image)
-                        response = await send_image_to_server(connection, frame_id=0, image=img_encoded.tobytes())
-                        if response.get("success"):
-                            track.recognized_user = response.get("user")
-                        track.recognition_pending = False
+                        recognition_task = asyncio.create_task(
+                            recognize_track(
+                                connection,
+                                track,
+                                img_encoded.tobytes(),
+                            )
+                        )
                 else:
                     cv2.circle(image, (int(centroid_x), int(bbox.ymin * h)), 6, (0, 0, 255), -1)
 
-                event = track.update(centroid_x)
+                event = track.update(display_centroid_x)
                 if event is not None:
+                    if event is Direction.ENTRADA:
+                        entered += 1
+                    else:
+                        exited += 1
+                    inside = max(0, entered - exited)
                     user = track.recognized_user or "Desconocido"
-                    print(f"Evento: {event.value.upper()} — usuario: {user}")
+                    print(
+                        f"Evento: {event.value.upper()} — usuario: {user} — "
+                        f"dentro: {inside}"
+                    )
                     track = None
 
             elif track is not None and track.mark_missed():
                 track = None
 
+            draw_counter(flipped_image, entered, exited, max(0, entered - exited))
             cv2.imshow("CamS", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
