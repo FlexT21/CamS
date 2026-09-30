@@ -1,7 +1,8 @@
-from mediapipe.python.solutions import drawing_styles, drawing_utils, face_mesh
 import math
 from dataclasses import dataclass
+
 import cv2
+from mediapipe.python.solutions import drawing_styles, drawing_utils, face_mesh
 
 
 def draw_dashed_line(image, x: int, color: tuple[int, int, int],
@@ -27,10 +28,21 @@ def draw_counter(image, entered: int, exited: int, inside: int) -> None:
         f"Dentro: {inside}",
     )
     for index, text in enumerate(lines):
+        position = (18, 32 + index * 30)
         cv2.putText(
             image,
             text,
-            (18, 32 + index * 30),
+            position,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 0, 0),
+            5,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            image,
+            text,
+            position,
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 255),
@@ -108,4 +120,24 @@ def draw_direction_vector(image, vector: DirectionVector) -> None:
     cv2.circle(image, vector.tip, 6, (0, 0, 255), -1)  # el centroide real, en punta de flecha
 
     label = f"|v|={vector.magnitude:.0f}px  ang={vector.angle_degrees:.0f}deg"
-    cv2.putText(image, label, (10, image.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    position = (10, image.shape[0] - 20)
+    cv2.putText(
+        image,
+        label,
+        position,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 0, 0),
+        5,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        image,
+        label,
+        position,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )

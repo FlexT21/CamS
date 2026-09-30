@@ -1,5 +1,4 @@
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
@@ -16,6 +15,7 @@ class PersonTrack:
     max_missed_frames: int = 8
 
     last_centroid_x: float = 0.0
+    last_centroid_y: float = 0.0
     last_side: Optional[str] = None
     start_side: Optional[str] = None
     missed_frames: int = 0
@@ -41,8 +41,9 @@ class PersonTrack:
         margin = max(self.dead_zone * 3, 80)
         return (self.line_x - margin) <= centroid_x <= (self.line_x + margin)
 
-    def update(self, centroid_x: float) -> Optional[Direction]:
+    def update(self, centroid_x: float, centroid_y: float = 0.0) -> Optional[Direction]:
         self.last_centroid_x = centroid_x
+        self.last_centroid_y = centroid_y
         self.missed_frames = 0
 
         side = self.side_of(centroid_x)
