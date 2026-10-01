@@ -13,5 +13,27 @@
   ],
   "python-envs.pythonProjects": [
     
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "/^Push-Location C:\\\\Users\\\\100163245\\\\CamS; docker compose build server; docker compose up -d server; Pop-Location$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^docker compose exec server python -c \"import src\\.main, inspect; print\\(inspect\\.getsource\\(src\\.main\\.uvicorn\\.run\\) if hasattr\\(src\\.main, 'uvicorn'\\) else 'uvicorn not imported'\\); print\\(src\\.main\\.__file__\\)\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^docker compose exec server python -c \"import socket; print\\(socket\\.gethostbyname\\(socket\\.gethostname\\(\\)\\)\\)\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^Push-Location C:\\\\Users\\\\100163245\\\\CamS\\\\apps\\\\server; python -m py_compile src\\\\main\\.py src\\\\core\\\\config\\.py; Pop-Location$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "/^Push-Location C:\\\\Users\\\\100163245\\\\CamS; docker compose config --quiet; if \\(\\$LASTEXITCODE -eq 0\\) \\{ Write-Host 'Compose config valid' \\}; Pop-Location$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
 }

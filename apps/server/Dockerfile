@@ -1,4 +1,4 @@
-FROM python:3.10-slim-bullseye
+FROM python:3.12-slim-bookworm
 
 # UV environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -11,8 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /workspace/apps/server
 
 # Update packages and build dependencies
-RUN apt-get -y update
-RUN apt-get install -y --fix-missing \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --fix-missing \
     build-essential \
     cmake \
     gfortran \
@@ -35,17 +35,19 @@ RUN apt-get install -y --fix-missing \
     python3-setuptools \
     software-properties-common \
     zip \
-    && apt-get clean && rm -rf /tmp/* /var/tmp/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install UV from prebuilt image
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
 ENV PATH="/workspace/apps/server/.venv/bin:$PATH"
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=./uv.lock,target=uv.lock \
+RUN --mount=type=bind,source=./uv.lock,target=uv.lock \
     --mount=type=bind,source=./pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project
+    uv sync --frozen --no-install-project --no-build \
+    --no-binary-package dlib \
+    --no-binary-package face-recognition-models
 
 # Copy package files
 COPY ./pyproject.toml \
@@ -62,7 +64,14 @@ VOLUME [ "/workspace/apps/server/users" ]
 COPY ./src ./src
 
 # Sync and compile source code
-RUN --mount=type=cache,target=/root/.cache/uv \ 
-    uv sync
+RUN uv sync --frozen --no-build \
+    --no-binary-package dlib \
+    --no-binary-package face-recognition-models
+
+# Run the application without root privileges.
+RUN useradd --system --create-home --home-dir /home/cams \
+    --shell /usr/sbin/nologin cams \
+    && chown -R cams:cams /workspace/apps/server /home/cams
+USER cams
 
 CMD [ "python", "-m", "src.main" ]

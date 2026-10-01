@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Server settings
     SERVER_PREFIX: str = "/api"
+    SERVER_HOST: str = "127.0.0.1"
     SERVER_PORT: int = 8765
     SERVER_CORS_ORIGINS: List[str]
 
