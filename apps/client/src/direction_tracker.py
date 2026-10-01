@@ -55,7 +55,7 @@ class PersonTrack:
 
         event = None
         if self.last_side is not None and side != self.last_side:
-            event = Direction.ENTRADA if side == "left" else Direction.SALIDA
+            event = Direction.SALIDA if side == "left" else Direction.ENTRADA
 
         self.last_side = side
         return event
