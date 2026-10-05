@@ -71,6 +71,19 @@ En Docker Compose, el servidor usa automáticamente `mosquitto` como dirección 
 
 ## Registrar usuarios
 
+Puedes registrar una persona directamente desde la cámara del cliente. Inicia
+el servidor y ejecuta el modo de registro indicando el nombre de usuario:
+
+```powershell
+uv run python -m src.main 0 --server ws://localhost:8765/api/ws/ --register ana
+```
+
+La ventana muestra la cámara; pulsa la barra espaciadora para tomar cada foto y
+`Esc` para cancelar. Por defecto se solicitan tres fotos con exactamente un
+rostro detectable. Usa `--photos` para cambiar la cantidad. Las imágenes se
+guardan en `apps/server/users/<usuario>/` y el servidor actualiza su caché sin
+reiniciarse.
+
 Cada usuario debe tener una carpeta con su nombre dentro de `apps/server/users/`. Guarda en ella varias fotografías nítidas del rostro:
 
 ```text

@@ -15,7 +15,7 @@ from src.drawing import (
     draw_direction_vector,
     draw_face_mesh,
 )
-from src.request import send_image_to_server
+from src.request import register_face_image, send_image_to_server
 
 Cam = TypeVar("Cam", int, str)
 
@@ -41,10 +41,81 @@ async def recognize_track(connection, track: PersonTrack, image_bytes: bytes) ->
         track.recognition_pending = False
 
 
-async def main(cam, *, server_url: str, recognition_interval: float) -> None:
+async def register_user(
+    connection: ServerConnection,
+    cap: cv2.VideoCapture,
+    username: str,
+    required_photos: int,
+) -> None:
+    """Capture guided registration photos from the same camera window."""
+    captured = 0
+    frame_id = 0
+    window_name = "CamS - Registro"
+
+    while captured < required_photos:
+        success, image = cap.read()
+        if not success:
+            continue
+
+        display = cv2.flip(image, 1)
+        message = (
+            f"Registro: {username} | Foto {captured + 1}/{required_photos} | "
+            "ESPACIO captura - ESC cancela"
+        )
+        cv2.putText(
+            display, message, (18, 34), cv2.FONT_HERSHEY_SIMPLEX,
+            0.62, (0, 0, 0), 4, cv2.LINE_AA,
+        )
+        cv2.putText(
+            display, message, (18, 34), cv2.FONT_HERSHEY_SIMPLEX,
+            0.62, (255, 255, 255), 2, cv2.LINE_AA,
+        )
+        cv2.imshow(window_name, display)
+        key = cv2.waitKey(5) & 0xFF
+
+        if key == 27:
+            print("Registro cancelado.")
+            return
+        if key != ord(" "):
+            continue
+
+        _, encoded_image = cv2.imencode(".jpg", image)
+        response = await register_face_image(
+            connection,
+            frame_id=frame_id,
+            username=username,
+            image=encoded_image.tobytes(),
+        )
+        frame_id += 1
+        if response.get("success"):
+            captured += 1
+            print(f"Foto {captured}/{required_photos} registrada.")
+        else:
+            print(response.get("message", "No se pudo registrar la foto."))
+
+    print(f"Usuario '{username}' registrado correctamente.")
+
+
+async def main(
+    cam,
+    *,
+    server_url: str,
+    recognition_interval: float,
+    registration_username: str | None = None,
+    registration_photos: int = 3,
+) -> None:
     cap = cv2.VideoCapture(cam)
     connection = ServerConnection(server_url)
     await connection.connect()
+
+    if registration_username is not None:
+        await register_user(
+            connection, cap, registration_username, registration_photos
+        )
+        cap.release()
+        cv2.destroyAllWindows()
+        await connection.close()
+        return
 
     tracks: list[PersonTrack] = []
     entered = 0
@@ -184,6 +255,14 @@ if __name__ == "__main__":
         "--interval", type=float, default=1.0,
         help="Seconds between recognition attempts sent to the server.",
     )
+    parser.add_argument(
+        "--register", metavar="USERNAME", nargs="?", const="",
+        help="Open the camera registration interface for a user.",
+    )
+    parser.add_argument(
+        "--photos", type=int, default=3,
+        help="Number of valid photos required during registration.",
+    )
     args = parser.parse_args()
 
     try:
@@ -191,4 +270,20 @@ if __name__ == "__main__":
     except ValueError:
         cam_arg = args.cam
 
-    asyncio.run(main(cam_arg, server_url=args.server, recognition_interval=args.interval))
+    registration_username = args.register
+    if registration_username == "":
+        registration_username = input("Nombre de usuario: ").strip()
+    if registration_username is not None and not registration_username:
+        parser.error("El nombre de usuario no puede estar vacío.")
+    if args.photos < 1:
+        parser.error("--photos debe ser mayor que cero.")
+
+    asyncio.run(
+        main(
+            cam_arg,
+            server_url=args.server,
+            recognition_interval=args.interval,
+            registration_username=registration_username,
+            registration_photos=args.photos,
+        )
+    )

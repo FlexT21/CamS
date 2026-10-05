@@ -27,6 +27,7 @@ class WebSocketMessage(BaseModel):
     type: str
     frame_id: int
     device_id: str
+    username: Optional[str] = None
     image: Optional[bytes] = None
 
 

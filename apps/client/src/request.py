@@ -36,3 +36,31 @@ async def send_image_to_server(
         }
 
     return response
+
+
+async def register_face_image(
+    connection: ServerConnection,
+    *,
+    frame_id: int,
+    username: str,
+    image: bytes,
+) -> ServerResponse:
+    metadata: RequestMetadata = {
+        "type": "register_face",
+        "frame_id": frame_id,
+        "device_id": "client_1",
+        "username": username,
+    }
+
+    try:
+        await connection.send_message(json.dumps(metadata), text=True)
+        await connection.send_message(image, text=False)
+        response: ServerResponse = json.loads(await connection.receive_message())
+    except Exception as error:
+        return {
+            "type": "error",
+            "status": "failed",
+            "message": f"Error registering image: {error}",
+        }
+
+    return response
