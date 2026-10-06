@@ -60,7 +60,7 @@ Variables disponibles:
 | `SERVER_PORT` | `8765` | Puerto publicado por FastAPI. |
 | `SERVER_CORS_ORIGINS` | `["*"]` | Orígenes permitidos por CORS en formato JSON. |
 | `VALID_IMAGE_EXTENSIONS` | `[".png",".jpg",".jpeg",".gif"]` | Extensiones aceptadas para las imágenes de usuarios. |
-| `THRESHOLD_DISTANCE` | `0.52` | Distancia euclídea máxima para considerar una coincidencia. Un valor menor es más estricto. Ajusta este valor con muestras reales de usuarios registrados y no registrados. |
+| `THRESHOLD_DISTANCE` | `0.60` | Distancia euclídea máxima para considerar una coincidencia. Un valor menor es más estricto. Ajusta este valor con muestras reales de usuarios registrados y no registrados. |
 | `K_MEANS_CLUSTERS` | `3` | Número de centroides por usuario cuando hay suficientes imágenes. |
 | `MQTT_BROKER_ADDRESS` | `localhost` | Host del broker MQTT en ejecución local. |
 | `MQTT_BROKER_PORT` | `1883` | Puerto MQTT sin TLS. |

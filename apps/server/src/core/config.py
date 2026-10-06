@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     VALID_IMAGE_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png"]
 
     # Recognition settings
-    THRESHOLD_DISTANCE: float = 0.55
+    THRESHOLD_DISTANCE: float = 0.60
     K_MEANS_CLUSTERS: int = 3
 
     # MQTT settings

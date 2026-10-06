@@ -43,9 +43,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
 ENV PATH="/workspace/apps/server/.venv/bin:$PATH"
 
-RUN --mount=type=bind,source=./uv.lock,target=uv.lock \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=./uv.lock,target=uv.lock \
     --mount=type=bind,source=./pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-build \
+    uv sync --frozen --no-install-project --no-dev --no-build \
     --no-binary-package dlib \
     --no-binary-package face-recognition-models
 
@@ -64,7 +65,8 @@ VOLUME [ "/workspace/apps/server/users" ]
 COPY ./src ./src
 
 # Sync and compile source code
-RUN uv sync --frozen --no-build \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-build \
     --no-binary-package dlib \
     --no-binary-package face-recognition-models
 
