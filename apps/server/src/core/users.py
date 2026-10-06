@@ -36,10 +36,18 @@ def load_users() -> List[FaceEncoding]:
     return users
 
 
-# I'll use an in-memory cache for known users to avoid reloading them on each recognition.
-known_users = load_users()
+known_users: List[FaceEncoding] = []
+_users_loaded = False
+
+
+def ensure_known_users_loaded() -> None:
+    global _users_loaded
+    if not _users_loaded:
+        reload_known_users()
 
 
 def reload_known_users() -> None:
+    global _users_loaded
     known_users.clear()
     known_users.extend(load_users())
+    _users_loaded = True

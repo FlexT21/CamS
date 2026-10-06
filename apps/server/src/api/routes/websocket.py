@@ -5,7 +5,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from src.api.deps import MQTTPublisherDep
 from src.core.config import settings
-from src.core.users import known_users, reload_known_users
+from src.core.users import ensure_known_users_loaded, known_users, reload_known_users
 from src.schemas import WebSocketMessage
 from src.services.users import recognize_user
 from src.utils import USERSDIR, face_encodings
@@ -94,6 +94,7 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
                 })
                 continue
 
+            ensure_known_users_loaded()
             result = recognize_user(
                 known_users=known_users,
                 current_encoding=encodings[0],
