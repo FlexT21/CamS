@@ -16,7 +16,7 @@ async def send_image_to_server(
             "device_id": "client_1",
         }
 
-        await connection.send_message(json.dumps(metadata_message), text=True)
+        await connection.send_message(json.dumps(metadata_message))
         await connection.send_message(image, text=False)
         response_message = await connection.receive_message()
         response: ServerResponse = json.loads(response_message)
@@ -53,7 +53,7 @@ async def register_face_image(
     }
 
     try:
-        await connection.send_message(json.dumps(metadata), text=True)
+        await connection.send_message(json.dumps(metadata))
         await connection.send_message(image, text=False)
         response: ServerResponse = json.loads(await connection.receive_message())
     except Exception as error:

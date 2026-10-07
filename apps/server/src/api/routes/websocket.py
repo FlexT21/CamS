@@ -1,3 +1,5 @@
+import json
+
 import cv2
 import numpy as np
 from fastapi import APIRouter, WebSocket
@@ -29,7 +31,13 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
     await websocket.accept()
     try:
         while True:
-            metadata = await websocket.receive_json()
+            metadata_message = await websocket.receive()
+            metadata_payload = metadata_message.get("text")
+            if metadata_payload is None and metadata_message.get("bytes") is not None:
+                metadata_payload = metadata_message["bytes"].decode("utf-8")
+            if metadata_payload is None:
+                return
+            metadata = json.loads(metadata_payload)
             message = WebSocketMessage(**metadata)
 
             image_data = await websocket.receive_bytes()
