@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import cv2
@@ -40,6 +41,28 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
             metadata = json.loads(metadata_payload)
             message = WebSocketMessage(**metadata)
 
+            if message.type == "register_complete":
+                username = _safe_username(message.username)
+                if username is None:
+                    await websocket.send_json({
+                        "type": "registration_result",
+                        "frame_id": message.frame_id,
+                        "status": "invalid_username",
+                        "success": False,
+                        "message": "El nombre de usuario no es válido.",
+                    })
+                    continue
+
+                await asyncio.to_thread(reload_known_users)
+                await websocket.send_json({
+                    "type": "registration_result",
+                    "frame_id": message.frame_id,
+                    "status": "ok",
+                    "success": True,
+                    "message": f"Registro completado para {username}.",
+                })
+                continue
+
             image_data = await websocket.receive_bytes()
             image = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
             if image is not None:
@@ -81,7 +104,6 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
                     })
                     continue
 
-                reload_known_users()
                 await websocket.send_json({
                     "type": "registration_result",
                     "frame_id": message.frame_id,

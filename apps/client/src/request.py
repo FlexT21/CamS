@@ -64,3 +64,29 @@ async def register_face_image(
         }
 
     return response
+
+
+async def complete_registration(
+    connection: ServerConnection,
+    *,
+    frame_id: int,
+    username: str,
+) -> ServerResponse:
+    metadata: RequestMetadata = {
+        "type": "register_complete",
+        "frame_id": frame_id,
+        "device_id": "client_1",
+        "username": username,
+    }
+
+    try:
+        await connection.send_message(json.dumps(metadata))
+        response: ServerResponse = json.loads(await connection.receive_message())
+    except Exception as error:
+        return {
+            "type": "error",
+            "status": "failed",
+            "message": f"Error completing registration: {error}",
+        }
+
+    return response

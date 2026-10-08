@@ -11,6 +11,7 @@ class Direction(Enum):
 @dataclass
 class PersonTrack:
     line_x: int
+    recognition_x: int | None = None
     dead_zone: int = 12
     max_missed_frames: int = 8
 
@@ -20,6 +21,9 @@ class PersonTrack:
     start_side: Optional[str] = None
     missed_frames: int = 0
     recognized_user: Optional[str] = None
+    access_granted: Optional[bool] = None
+    access_message: Optional[str] = None
+    access_message_until: float = 0.0
     recognition_pending: bool = False
 
     def side_of(self, centroid_x: float) -> Optional[str]:
@@ -36,10 +40,14 @@ class PersonTrack:
         return None
 
     def is_in_recognition_zone(self, centroid_x: float) -> bool:
-        # zona amplia alrededor del centro, donde asumimos que la persona
-        # queda razonablemente de frente a la cámara durante el cruce
+        # La persona se reconoce en el centro antes de llegar a la línea.
+        recognition_center = self.recognition_x or self.line_x
         margin = max(self.dead_zone * 3, 80)
-        return (self.line_x - margin) <= centroid_x <= (self.line_x + margin)
+        return (
+            recognition_center - margin
+            <= centroid_x
+            <= recognition_center + margin
+        )
 
     def update(self, centroid_x: float, centroid_y: float = 0.0) -> Optional[Direction]:
         self.last_centroid_x = centroid_x

@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import time
 from typing import TypeVar
 
 import cv2
@@ -10,12 +11,13 @@ from src.connection import ServerConnection
 from src.direction_tracker import Direction, PersonTrack
 from src.drawing import (
     compute_display_vector,
+    draw_access_status,
     draw_counter,
     draw_dashed_line,
     draw_direction_vector,
     draw_face_mesh,
 )
-from src.request import register_face_image, send_image_to_server
+from src.request import complete_registration, register_face_image, send_image_to_server
 
 Cam = TypeVar("Cam", int, str)
 
@@ -29,15 +31,23 @@ async def recognize_track(connection, track: PersonTrack, image_bytes: bytes) ->
         )
         if response.get("success"):
             track.recognized_user = response.get("user")
+            track.access_granted = True
+            track.access_message = f"ACCESO ACEPTADO: {track.recognized_user}"
+            print(track.access_message)
         else:
-            print(
-                "Reconocimiento sin coincidencia: "
+            track.access_granted = False
+            track.access_message = (
+                "ACCESO DENEGADO: reconocimiento sin coincidencia: "
                 f"estado={response.get('status')}, "
                 f"distancia={response.get('distance')}"
             )
+            print(track.access_message)
     except Exception as error:
-        print(f"Reconocimiento omitido: {error}")
+        track.access_granted = False
+        track.access_message = f"ACCESO DENEGADO: reconocimiento omitido: {error}"
+        print(track.access_message)
     finally:
+        track.access_message_until = time.monotonic() + 3.0
         track.recognition_pending = False
 
 
@@ -93,7 +103,13 @@ async def register_user(
         else:
             print(response.get("message", "No se pudo registrar la foto."))
 
-    print(f"Usuario '{username}' registrado correctamente.")
+    response = await complete_registration(
+        connection, frame_id=frame_id, username=username
+    )
+    if response.get("success"):
+        print(f"Usuario '{username}' registrado correctamente.")
+    else:
+        print(response.get("message", "No se pudo completar el registro."))
 
 
 async def main(
@@ -136,7 +152,7 @@ async def main(
             h, w = image.shape[:2]
             # La línea se dibuja en el frame original y luego se espeja para
             # que aparezca en el lado derecho de la ventana.
-            line_x_display = int(w * 0.82)
+            line_x_display = int(w * 0.82) - 15
             line_x_source = w - line_x_display
             draw_dashed_line(image, line_x_source, (255, 0, 0))
 
@@ -174,6 +190,7 @@ async def main(
                 else:
                     track = PersonTrack(
                         line_x=line_x_display,
+                        recognition_x=w // 2,
                         dead_zone=max(10, int(w * 0.015)),
                     )
                     tracks.append(track)
@@ -193,7 +210,10 @@ async def main(
                 vector = compute_display_vector(centroid_x, centroid_y, w, h)
                 draw_direction_vector(flipped_image, vector)
 
-                if track.is_in_recognition_zone(display_centroid_x):
+                if (
+                    track.is_in_recognition_zone(display_centroid_x)
+                    and track.last_side != "right"
+                ):
                     if track.recognized_user is None and not track.recognition_pending:
                         x1 = max(0, int(bbox.xmin * w))
                         y1 = max(0, int(bbox.ymin * h))
@@ -219,9 +239,9 @@ async def main(
 
                 event = track.update(display_centroid_x, centroid_y)
                 if event is not None:
-                    if event is Direction.ENTRADA:
+                    if event is Direction.ENTRADA and track.access_granted:
                         entered += 1
-                    else:
+                    elif event is Direction.SALIDA:
                         exited += 1
                     inside = max(0, entered - exited)
                     user = track.recognized_user or "Desconocido"
@@ -234,6 +254,10 @@ async def main(
             tracks = [track for track in tracks if track not in completed_tracks]
 
             draw_counter(flipped_image, entered, exited, max(0, entered - exited))
+            for track in matched_tracks:
+                if track[0].access_message_until > time.monotonic():
+                    draw_access_status(flipped_image, track[0].access_message)
+                    break
             cv2.imshow("CamS", flipped_image)
             if cv2.waitKey(5) & 0xFF == 27:
                 break
