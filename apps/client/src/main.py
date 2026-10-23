@@ -209,10 +209,13 @@ async def main(
             for track, bbox, centroid_x, centroid_y, display_centroid_x in matched_tracks:
                 vector = compute_display_vector(centroid_x, centroid_y, w, h)
                 draw_direction_vector(flipped_image, vector)
+                event = track.update(display_centroid_x, centroid_y)
+                current_side = track.side_of(display_centroid_x)
 
                 if (
-                    track.is_in_recognition_zone(display_centroid_x)
-                    and track.last_side != "right"
+                    current_side == "left"
+                    and track.is_in_recognition_zone(display_centroid_x)
+                    and track.start_side != "right"
                 ):
                     if track.recognized_user is None and not track.recognition_pending:
                         x1 = max(0, int(bbox.xmin * w))
@@ -237,7 +240,6 @@ async def main(
                         -1,
                     )
 
-                event = track.update(display_centroid_x, centroid_y)
                 if event is not None:
                     if event is Direction.ENTRADA and track.access_granted:
                         entered += 1
@@ -287,7 +289,17 @@ if __name__ == "__main__":
         "--photos", type=int, default=3,
         help="Number of valid photos required during registration.",
     )
+    parser.add_argument(
+        "--admin", action="store_true",
+        help="Open the administrative interface.",
+    )
     args = parser.parse_args()
+
+    if args.admin:
+        from src.admin import run_admin_interface
+
+        run_admin_interface(args.server)
+        raise SystemExit(0)
 
     try:
         cam_arg = int(args.cam)

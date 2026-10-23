@@ -44,6 +44,32 @@ Por defecto se solicitan tres fotos válidas. Puedes cambiar la cantidad con
 `--photos`. El servidor guarda las imágenes en `apps/server/users/<usuario>/` y
 actualiza el reconocimiento sin reiniciarse.
 
+## Interfaz administrativa
+
+También puedes abrir un panel de administración para usar el reconocimiento y el
+registro desde una sola ventana:
+
+```powershell
+uv run python -m src.main --admin --server ws://localhost:8765/api/ws/
+```
+
+El panel solicita el usuario `admin` y la contraseña inicial `admin123`. Ambos
+valores se almacenan únicamente como hashes PBKDF2 dentro del código; no se
+guarda la contraseña en texto plano. Después del inicio de sesión, la cámara se
+selecciona desde un desplegable con los dispositivos detectados; usa
+`Actualizar` para volver a escanearlos. También permite indicar la URL del
+servidor, el nombre de usuario y la cantidad de fotos de registro. Cada
+operación abre la ventana de cámara existente; pulsa `Esc` para finalizarla y
+volver al panel.
+
+La ventana administrativa tiene un área ampliada para visualizar mejor la
+cámara. El reconocimiento facial solo se ejecuta antes de la línea de cruce;
+cuando una persona ya la cruzó, o se desplaza hacia la salida, no se envía su
+imagen al servidor. La interfaz de vídeo muestra la línea de cruce, el
+centroide y las flechas con los cálculos de dirección.
+En particular, el área derecha de la línea se usa únicamente para detectar y
+registrar salidas: ningún rostro ubicado allí se envía al reconocimiento.
+
 La ventana muestra una línea azul punteada cerca del borde derecho, el centroide detectado, un vector de dirección y los contadores de `Ingresaron`, `Salieron` y `Dentro`. En la imagen mostrada, un cruce de derecha a izquierda se registra como `salida`; uno de izquierda a derecha se registra como `entrada`.
 
 ## Opciones
