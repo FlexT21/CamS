@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import hmac
+import os
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -10,8 +11,7 @@ import cv2
 
 from src.main import main
 
-
-_CREDENTIAL_SALT = bytes.fromhex("11a52af5f407b08b30fff0ecff016b11")
+_CREDENTIAL_SALT_ENV = "CAMS_CREDENTIAL_SALT"
 _CREDENTIAL_ITERATIONS = 600_000
 _ADMIN_USERNAME_HASH = (
     "2e30d0d457d8686232a817ca0ad944d68c7783fb1d014f3a081ca3321930a5ba"
@@ -19,6 +19,30 @@ _ADMIN_USERNAME_HASH = (
 _ADMIN_PASSWORD_HASH = (
     "842d98809003d3c826f341269b37877bd468ca842ba461a15d723419a9f8dff7"
 )
+
+
+def _load_credential_salt() -> bytes:
+    salt_value = os.environ.get(_CREDENTIAL_SALT_ENV)
+    if salt_value is None:
+        raise RuntimeError(
+            f"{_CREDENTIAL_SALT_ENV} must contain a random 16-byte salt in hexadecimal."
+        )
+
+    try:
+        salt = bytes.fromhex(salt_value)
+    except ValueError as error:
+        raise RuntimeError(
+            f"{_CREDENTIAL_SALT_ENV} must contain a random 16-byte salt in hexadecimal."
+        ) from error
+
+    if len(salt) != 16:
+        raise RuntimeError(
+            f"{_CREDENTIAL_SALT_ENV} must contain exactly 16 bytes in hexadecimal."
+        )
+    return salt
+
+
+_CREDENTIAL_SALT = _load_credential_salt()
 
 
 def _credential_hash(value: str) -> bytes:

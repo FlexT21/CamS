@@ -53,6 +53,18 @@ registro desde una sola ventana:
 uv run python -m src.main --admin --server ws://localhost:8765/api/ws/
 ```
 
+Antes de iniciar el panel, configura `CAMS_CREDENTIAL_SALT` con un valor
+aleatorio de 16 bytes codificado en hexadecimal. El valor debe ser persistente
+para que los hashes de las credenciales sigan siendo válidos:
+
+```powershell
+$env:CAMS_CREDENTIAL_SALT = (python -c "import secrets; print(secrets.token_hex(16))")
+```
+
+En un entorno permanente, guarda este valor en la configuración segura del
+equipo en lugar de generarlo en cada terminal. Los hashes de usuario y
+contraseña deben generarse usando el mismo salt.
+
 El panel solicita el usuario `admin` y la contraseña inicial `admin123`. Ambos
 valores se almacenan únicamente como hashes PBKDF2 dentro del código; no se
 guarda la contraseña en texto plano. Después del inicio de sesión, la cámara se
