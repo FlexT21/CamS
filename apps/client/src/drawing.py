@@ -133,3 +133,31 @@ def draw_direction_vector(image, vector: DirectionVector) -> None:
         (0, 255, 255),
         2,
     )
+
+
+def draw_access_status(image, message: str | None) -> None:
+    if not message:
+        return
+
+    color = (0, 180, 0) if message.startswith("ACCESO ACEPTADO") else (0, 0, 255)
+    position = (18, image.shape[0] - 50)
+    cv2.putText(
+        image,
+        message,
+        position,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 0, 0),
+        5,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        image,
+        message,
+        position,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        color,
+        2,
+        cv2.LINE_AA,
+    )

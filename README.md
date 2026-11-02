@@ -68,7 +68,7 @@ Variables disponibles:
 | `SERVER_PORT` | `8765` | Puerto publicado por FastAPI. |
 | `SERVER_CORS_ORIGINS` | `["*"]` | Orígenes permitidos por CORS en formato JSON. |
 | `VALID_IMAGE_EXTENSIONS` | `[".png",".jpg",".jpeg",".gif"]` | Extensiones aceptadas para las imágenes de usuarios. |
-| `THRESHOLD_DISTANCE` | `0.52` | Distancia euclídea máxima para considerar una coincidencia. Un valor menor es más estricto. Ajusta este valor con muestras reales de usuarios registrados y no registrados. |
+| `THRESHOLD_DISTANCE` | `0.60` | Distancia euclídea máxima para considerar una coincidencia. Un valor menor es más estricto. Ajusta este valor con muestras reales de usuarios registrados y no registrados. |
 | `K_MEANS_CLUSTERS` | `3` | Número de centroides por usuario cuando hay suficientes imágenes. |
 | `MQTT_BROKER_ADDRESS` | `localhost` | Host del broker MQTT en ejecución local. |
 | `MQTT_BROKER_PORT` | `1883` | Puerto MQTT sin TLS. |
@@ -78,6 +78,19 @@ Variables disponibles:
 En Docker Compose, el servidor usa automáticamente `mosquitto` como dirección del broker dentro de la red de Compose.
 
 ## Registrar usuarios
+
+Puedes registrar una persona directamente desde la cámara del cliente. Inicia
+el servidor y ejecuta el modo de registro indicando el nombre de usuario:
+
+```powershell
+uv run python -m src.main 0 --server ws://localhost:8765/api/ws/ --register ana
+```
+
+La ventana muestra la cámara; pulsa la barra espaciadora para tomar cada foto y
+`Esc` para cancelar. Por defecto se solicitan tres fotos con exactamente un
+rostro detectable. Usa `--photos` para cambiar la cantidad. Las imágenes se
+guardan en `apps/server/users/<usuario>/` y el servidor actualiza su caché sin
+reiniciarse.
 
 Cada usuario debe tener una carpeta con su nombre dentro de `apps/server/users/`. Guarda en ella varias fotografías nítidas del rostro:
 

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Server settings
     SERVER_PREFIX: str = "/api"
+    SERVER_HOST: str = "127.0.0.1"
     SERVER_PORT: int = 8765
     SERVER_CORS_ORIGINS: List[str] = ["*"]
 
@@ -22,7 +23,7 @@ class Settings(BaseSettings):
     VALID_IMAGE_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png"]
 
     # Recognition settings
-    THRESHOLD_DISTANCE: float = 0.55
+    THRESHOLD_DISTANCE: float = 0.60
     K_MEANS_CLUSTERS: int = 3
 
     # MQTT settings

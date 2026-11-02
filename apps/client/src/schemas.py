@@ -5,6 +5,7 @@ class RequestMetadata(TypedDict):
     type: str
     frame_id: int
     device_id: str
+    username: NotRequired[str]
 
 
 class ServerResponse(TypedDict):

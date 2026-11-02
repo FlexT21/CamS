@@ -21,7 +21,7 @@ class ServerConnection:
         if socket is not None:
             await socket.close()
 
-    async def request(self, metadata: dict, image: bytes):
+    async def request(self, metadata: dict, image: bytes | None = None):
         # Retry the complete JSON/JPEG/response transaction, never an individual message.
         async with self.lock:
             for attempt in range(self.retries):
@@ -29,7 +29,8 @@ class ServerConnection:
                     if self.websocket is None:
                         await self.connect()
                     await self.websocket.send(json.dumps(metadata))
-                    await self.websocket.send(image)
+                    if image is not None:
+                        await self.websocket.send(image)
                     response = json.loads(await self.websocket.recv())
                     if response.get("frame_id") != metadata["frame_id"]:
                         raise ValueError("Recognition frame_id mismatch")

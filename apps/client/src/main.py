@@ -17,7 +17,7 @@ from src.drawing import (
     draw_face_mesh,
 )
 from src.occupancy import Occupancy
-from src.request import send_image_to_server
+from src.request import complete_registration, register_face_image, send_image_to_server
 
 
 async def recognize_track(connection, track, image_bytes, frame_id):
@@ -34,6 +34,79 @@ async def recognize_track(connection, track, image_bytes, frame_id):
         track.recognition_pending = False
 
 
+async def register_user(
+    connection: ServerConnection,
+    cap: cv2.VideoCapture,
+    username: str,
+    required_photos: int,
+) -> None:
+    """Capture guided registration photos from the same camera window."""
+    captured = 0
+    frame_id = 0
+    window_name = "CamS - Registro"
+
+    while captured < required_photos:
+        success, image = cap.read()
+        if not success:
+            continue
+
+        display = cv2.flip(image, 1)
+        message = (
+            f"Registro: {username} | Foto {captured + 1}/{required_photos} | "
+            "ESPACIO captura - ESC cancela"
+        )
+        cv2.putText(
+            display,
+            message,
+            (18, 34),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.62,
+            (0, 0, 0),
+            4,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            display,
+            message,
+            (18, 34),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.62,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+        cv2.imshow(window_name, display)
+        key = cv2.waitKey(5) & 0xFF
+
+        if key == 27:
+            print("Registro cancelado.")
+            return
+        if key != ord(" "):
+            continue
+
+        _, encoded_image = cv2.imencode(".jpg", image)
+        response = await register_face_image(
+            connection,
+            frame_id=frame_id,
+            username=username,
+            image=encoded_image.tobytes(),
+        )
+        frame_id += 1
+        if response.get("success"):
+            captured += 1
+            print(f"Foto {captured}/{required_photos} registrada.")
+        else:
+            print(response.get("message", "No se pudo registrar la foto."))
+
+    response = await complete_registration(
+        connection, frame_id=frame_id, username=username
+    )
+    if response.get("success"):
+        print(f"Usuario '{username}' registrado correctamente.")
+    else:
+        print(response.get("message", "No se pudo completar el registro."))
+
+
 async def main(
     cam,
     *,
@@ -42,6 +115,8 @@ async def main(
     arduino_port=None,
     line_position=0.25,
     database=None,
+    registration_username=None,
+    registration_photos=3,
 ):
     connection = ServerConnection(server_url)
     cap = cv2.VideoCapture(cam)
@@ -53,6 +128,11 @@ async def main(
     try:
         if not cap.isOpened():
             raise RuntimeError(f"No se pudo abrir la cámara o vídeo: {cam}")
+        if registration_username is not None:
+            await register_user(
+                connection, cap, registration_username, registration_photos
+            )
+            return
         ledger = Occupancy(
             database
             or str(Path(__file__).resolve().parents[1] / "data/occupancy.sqlite3")
@@ -214,7 +294,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "--database", help="Path to persistent SQLite occupancy database"
     )
+    parser.add_argument("--register", metavar="USERNAME", nargs="?", const="")
+    parser.add_argument("--photos", type=int, default=3)
+    parser.add_argument("--admin", action="store_true")
     args = parser.parse_args()
+    if args.admin:
+        from src.admin import run_admin_interface
+
+        run_admin_interface(args.server)
+        raise SystemExit(0)
+    if args.register == "":
+        args.register = input("Nombre de usuario: ").strip()
+    if args.register is not None and not args.register:
+        parser.error("El nombre de usuario no puede estar vacío")
+    if args.photos < 1:
+        parser.error("--photos debe ser mayor que cero")
     if args.interval <= 0:
         parser.error("--interval debe ser mayor que cero")
     if not 0.05 <= args.line_position <= 0.95:
@@ -233,5 +327,7 @@ if __name__ == "__main__":
             arduino_port=args.arduino_port,
             line_position=args.line_position,
             database=args.database,
+            registration_username=args.register,
+            registration_photos=args.photos,
         )
     )

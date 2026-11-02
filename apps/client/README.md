@@ -55,3 +55,5 @@ Consulta [SYSTEM.md](../../SYSTEM.md) y [VERIFICACION.md](../../VERIFICACION.md)
 | `--arduino-port` | desactivado | Puerto serie, por ejemplo COM3. |
 | `--line-position` | `0.25` | Fracción horizontal de la línea en la imagen mostrada. |
 | `--database` | `data/occupancy.sqlite3` | Registro persistente SQLite. |
+
+El cliente también admite `--register NOMBRE --photos 3` y `--admin` para registro y administración de escritorio.

@@ -21,6 +21,7 @@ services:
       - ./apps/server/users:/workspace/apps/server/users
     environment:
       - SERVER_PREFIX=${SERVER_PREFIX-/api}
+      - SERVER_HOST=0.0.0.0
       - SERVER_PORT=${SERVER_PORT-8765}
       - SERVER_CORS_ORIGINS=${SERVER_CORS_ORIGINS?Variable not set}
       - VALID_IMAGE_EXTENSIONS=${VALID_IMAGE_EXTENSIONS}

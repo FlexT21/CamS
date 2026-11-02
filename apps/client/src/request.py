@@ -31,3 +31,54 @@ async def send_image_to_server(
         }
 
     return response
+
+
+async def register_face_image(
+    connection: ServerConnection,
+    *,
+    frame_id: int,
+    username: str,
+    image: bytes,
+) -> ServerResponse:
+    metadata: RequestMetadata = {
+        "type": "register_face",
+        "frame_id": frame_id,
+        "device_id": "client_1",
+        "username": username,
+    }
+
+    try:
+        response: ServerResponse = await connection.request(metadata, image)
+    except Exception as error:
+        return {
+            "type": "error",
+            "status": "failed",
+            "message": f"Error registering image: {error}",
+        }
+
+    return response
+
+
+async def complete_registration(
+    connection: ServerConnection,
+    *,
+    frame_id: int,
+    username: str,
+) -> ServerResponse:
+    metadata: RequestMetadata = {
+        "type": "register_complete",
+        "frame_id": frame_id,
+        "device_id": "client_1",
+        "username": username,
+    }
+
+    try:
+        response: ServerResponse = await connection.request(metadata)
+    except Exception as error:
+        return {
+            "type": "error",
+            "status": "failed",
+            "message": f"Error completing registration: {error}",
+        }
+
+    return response
