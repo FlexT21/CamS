@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Server settings
     SERVER_PREFIX: str = "/api"
     SERVER_PORT: int = 8765
-    SERVER_CORS_ORIGINS: List[str]
+    SERVER_CORS_ORIGINS: List[str] = ["*"]
 
     # Image settings
     VALID_IMAGE_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png"]

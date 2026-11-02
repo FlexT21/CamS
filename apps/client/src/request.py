@@ -1,5 +1,3 @@
-import json
-
 from src.connection import ServerConnection
 from src.schemas import RequestMetadata, ServerResponse
 
@@ -16,10 +14,7 @@ async def send_image_to_server(
             "device_id": "client_1",
         }
 
-        await connection.send_message(json.dumps(metadata_message), text=True)
-        await connection.send_message(image, text=False)
-        response_message = await connection.receive_message()
-        response: ServerResponse = json.loads(response_message)
+        response: ServerResponse = await connection.request(metadata_message, image)
     except Exception as e:
         print(f"Error sending image to server: {e}")
         return {

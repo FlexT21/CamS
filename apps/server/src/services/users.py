@@ -27,5 +27,7 @@ def recognize_user(
         success = False
 
     return RecognizeUserResponse(
-        user=best_user, success=success, distance=best_distance
+        user=best_user,
+        success=success,
+        distance=best_distance if best_distance != float("inf") else None,
     )

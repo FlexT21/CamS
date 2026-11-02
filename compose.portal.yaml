@@ -1,0 +1,38 @@
+# Complete web stack. Existing MediaPipe + face-recognition/dlib stack
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+    restart: unless-stopped
+  portal:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile.portal
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL-}
+      CAMS_MQTT_HOST: mosquitto
+      CAMS_MQTT_PORT: 1883
+      CAMS_SQLITE_PATH: /workspace/.runtime/data/portal.sqlite3
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - portal-data:/workspace/.runtime/data
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+  web:
+    build: ./apps/web
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - portal
+    restart: unless-stopped
+volumes:
+  mqtt-data:
+  mqtt-log:
+  portal-data:

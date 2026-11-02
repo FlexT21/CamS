@@ -9,3 +9,12 @@
 # Mosquito files
 mosquitto/data/
 mosquitto/log/
+
+apps/client/data/
+entrega/
+
+# Portal React y copia YOLO
+**/node_modules/
+**/dist/
+**/__pycache__/
+**/*.tsbuildinfo

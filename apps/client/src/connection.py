@@ -1,53 +1,44 @@
 import asyncio
-from typing import Any, Callable, TypeVar
+import json
 
 from websockets.asyncio.client import connect
 
-T = TypeVar("T")
-
 
 class ServerConnection:
-    def __init__(self, server_url: str, retries: int = 3, delay: float = 2.0):
+    def __init__(self, server_url: str, retries: int = 3, delay: float = 0.5):
         self.server_url = server_url
         self.websocket = None
         self.retries = retries
         self.delay = delay
+        self.lock = asyncio.Lock()
 
     async def connect(self):
-        self.websocket = await connect(self.server_url)
+        self.websocket = await connect(self.server_url, open_timeout=2, close_timeout=1)
         return self.websocket
 
     async def close(self):
-        if self.websocket:
-            await self.websocket.close()
-            self.websocket = None
+        socket, self.websocket = self.websocket, None
+        if socket is not None:
+            await socket.close()
 
-    async def _execution_with_retry(self, operation: Callable[[], T]) -> T:
-        last_error: Exception | None = None
-        for attempt in range(self.retries):
-            try:
-                if self.websocket is None:
-                    self.websocket = await connect(self.server_url)
-                return await operation()
-            except Exception as e:
-                last_error = e
-                print(f"Connection attempt {attempt + 1} failed: {e}")
-                self.websocket = None
-                if attempt < self.retries - 1:
+    async def request(self, metadata: dict, image: bytes):
+        # Retry the complete JSON/JPEG/response transaction, never an individual message.
+        async with self.lock:
+            for attempt in range(self.retries):
+                try:
+                    if self.websocket is None:
+                        await self.connect()
+                    await self.websocket.send(json.dumps(metadata))
+                    await self.websocket.send(image)
+                    response = json.loads(await self.websocket.recv())
+                    if response.get("frame_id") != metadata["frame_id"]:
+                        raise ValueError("Recognition frame_id mismatch")
+                    return response
+                except asyncio.CancelledError:
+                    await self.close()
+                    raise
+                except Exception:
+                    await self.close()
+                    if attempt + 1 == self.retries:
+                        raise
                     await asyncio.sleep(self.delay)
-
-        raise ConnectionError(
-            f"Failed to connect to server after {self.retries} attempts."
-        ) from last_error
-
-    async def send_message(self, message: Any, **kwargs: Any) -> None:
-        async def operation() -> None:
-            return await self.websocket.send(message, **kwargs)
-
-        await self._execution_with_retry(operation)
-
-    async def receive_message(self) -> Any:
-        async def operation() -> Any:
-            return await self.websocket.recv()
-
-        return await self._execution_with_retry(operation)

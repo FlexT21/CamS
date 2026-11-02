@@ -1,4 +1,4 @@
-FROM python:3.10-slim-bullseye
+FROM python:3.12-slim-bullseye
 
 # UV environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -53,7 +53,7 @@ COPY ./pyproject.toml \
     ./
 
 # Copy user data
-COPY ./users/ ./users
+RUN mkdir -p ./users
 
 # Define volume for user data
 VOLUME [ "/workspace/apps/server/users" ]
@@ -62,7 +62,7 @@ VOLUME [ "/workspace/apps/server/users" ]
 COPY ./src ./src
 
 # Sync and compile source code
-RUN --mount=type=cache,target=/root/.cache/uv \ 
+RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
 
 CMD [ "python", "-m", "src.main" ]

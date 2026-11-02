@@ -12,5 +12,5 @@ async def healthcheck() -> HealthcheckResponse:
     return HealthcheckResponse(
         status="ok",
         message="Server is running",
-        extra={"Broker connection": "ok"},
+        extra={"Broker connection": "not_checked"},
     )

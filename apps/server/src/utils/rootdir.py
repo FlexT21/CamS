@@ -11,7 +11,7 @@ def project_root(anchor: str = "pyproject.toml"):
     )
 
 
-ROOTDIR = project_root()
+ROOTDIR = Path(__file__).resolve().parents[2]
 SRCDIR = ROOTDIR / "src"
 USERSDIR = ROOTDIR / "users"
 USERSDIR.mkdir(parents=True, exist_ok=True)

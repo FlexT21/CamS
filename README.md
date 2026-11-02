@@ -1,3 +1,11 @@
+# Portal CamS integrado
+
+La aplicación completa de CamS ahora está instalada en esta carpeta: React en `apps/web`, servidor en `apps/server/src/portal`, modelos locales y entorno `.venv-portal`.
+
+Ejecuta `./iniciar_cams.ps1` y abre http://127.0.0.1:5173. Consulta [SYSTEM.md](SYSTEM.md) para motores de reconocimiento, Supabase, base local, Arduino y límites de verificación. El cliente de escritorio anterior se conserva; se inicia con `./iniciar_escritorio.ps1` y requiere detener el portal.
+
+## Documentación del cliente anterior
+
 # CamS
 
 CamS es un sistema de reconocimiento facial en tiempo real. Un cliente Python captura imágenes de una cámara, detecta rostros y envía los frames al servidor mediante WebSocket. El servidor compara el rostro recibido con las imágenes registradas para cada usuario y publica un evento MQTT cuando reconoce a alguien.
@@ -161,10 +169,17 @@ Opciones disponibles:
 | `cam` | `0` | Índice de cámara o ruta de vídeo. |
 | `--server`, `-s` | `ws://localhost:8765/api/ws/` | URL WebSocket del servidor. |
 | `--interval` | `1.0` | Segundos entre intentos de reconocimiento. |
+| `--arduino-port` | desactivado | Puerto USB serie del Arduino, por ejemplo `COM3`. |
+| `--line-position` | `0.25` | Posición de la línea respecto al ancho de la imagen mostrada. |
+| `--database` | `apps/client/data/occupancy.sqlite3` | Base SQLite de ocupación y eventos. |
 
 Pulsa `Esc` en la ventana de vídeo para cerrar el cliente.
 
-Durante la ejecución, el cliente muestra una línea azul punteada cerca del borde derecho, un vector desde el centro de la imagen hasta el rostro detectado y los contadores de personas. El reconocimiento se solicita cuando la persona se encuentra cerca de la línea; al cruzar de derecha a izquierda se genera un evento de `salida`, mientras que al cruzar de izquierda a derecha se genera un evento de `entrada`. El total dentro se calcula como entradas menos salidas.
+Durante la ejecución, el cliente muestra una línea azul punteada en el lado izquierdo (25 % del ancho de la imagen espejada). Un cruce de **derecha a izquierda es entrada (+1)**; uno de **izquierda a derecha es salida (−1)**. Solo se registra el cruce después de confirmar una identidad. El registro SQLite conserva las personas dentro y los eventos al reiniciar. Una identidad ya dentro no vuelve a sumar por otro cruce de entrada; una identidad fuera no genera una salida negativa.
+
+Para activar el LED del pin **13 del Arduino Uno**, carga `arduino/occupancy_led/occupancy_led.ino` y ejecuta el cliente con `--arduino-port COM3`, sustituyendo COM3 por el puerto real. Cada entrada válida envía el carácter ASCII `0` a 9600 baudios y espera `LED_ON`. El LED queda encendido hasta recibir `1` o reiniciar la placa. El reconocimiento facial por sí solo no envía el comando.
+
+Consulta [SYSTEM.md](SYSTEM.md) para instalación, protocolo, registro persistente, pruebas y límites de operación.
 
 ## Protocolo WebSocket
 
@@ -196,7 +211,7 @@ Respuesta de reconocimiento:
 }
 ```
 
-Si no se detecta ningún rostro, `status` será `no_face`, `user` será `Unknown` y `success` será `false`.
+Si no se detecta exactamente un rostro válido, `status` será `no_face`, `user` será `Unknown` y `success` será `false`.
 
 ## API
 
@@ -209,7 +224,7 @@ Comprueba que el servidor está ejecutándose:
   "status": "ok",
   "message": "Server is running",
   "extra": {
-    "Broker connection": "ok"
+    "Broker connection": "not_checked"
   }
 }
 ```

@@ -32,7 +32,17 @@ uv run python -m src.main video.mp4 --server ws://localhost:8765/api/ws/
 
 Pulsa `Esc` en la ventana de vídeo para cerrar el cliente.
 
-La ventana muestra una línea azul punteada cerca del borde derecho, el centroide detectado, un vector de dirección y los contadores de `Ingresaron`, `Salieron` y `Dentro`. En la imagen mostrada, un cruce de derecha a izquierda se registra como `salida`; uno de izquierda a derecha se registra como `entrada`.
+La ventana muestra la línea azul a la izquierda. En la imagen espejada: derecha → izquierda = entrada; izquierda → derecha = salida. Solo cuentan identidades reconocidas. El total y los eventos se conservan en `data/occupancy.sqlite3`.
+
+Con Arduino Uno conectado, carga `../../arduino/occupancy_led/occupancy_led.ino` y ejecuta:
+
+```powershell
+uv run python -m src.main 0 --arduino-port COM3
+```
+
+Cada entrada nueva envía ASCII `0` a 9600 baudios para encender el pin 13. Reemplaza COM3 por el puerto de tu placa. El LED permanece encendido; ASCII `1` lo apaga manualmente. Sin `--arduino-port` funciona el conteo y se informa que la señal está desactivada.
+
+Consulta [SYSTEM.md](../../SYSTEM.md) y [VERIFICACION.md](../../VERIFICACION.md).
 
 ## Opciones
 
@@ -41,3 +51,7 @@ La ventana muestra una línea azul punteada cerca del borde derecho, el centroid
 | `cam` | `0` | Índice de cámara o ruta de vídeo. |
 | `--server`, `-s` | `ws://localhost:8765/api/ws/` | URL del WebSocket del servidor. |
 | `--interval` | `1.0` | Intervalo configurado entre intentos de reconocimiento. |
+
+| `--arduino-port` | desactivado | Puerto serie, por ejemplo COM3. |
+| `--line-position` | `0.25` | Fracción horizontal de la línea en la imagen mostrada. |
+| `--database` | `data/occupancy.sqlite3` | Registro persistente SQLite. |

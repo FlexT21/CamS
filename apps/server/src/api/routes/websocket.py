@@ -1,3 +1,5 @@
+import asyncio
+
 import cv2
 import numpy as np
 from fastapi import APIRouter, WebSocket
@@ -22,18 +24,30 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
             message = WebSocketMessage(**metadata)
 
             image_data = await websocket.receive_bytes()
-            image = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
+            image = (
+                cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
+                if image_data
+                else None
+            )
 
-            encodings = face_encodings(image)
-            if not encodings:
-                await websocket.send_json({
-                    "type": "recognition_result",
-                    "frame_id": message.frame_id,
-                    "status": "no_face",
-                    "user": "Unknown",
-                    "success": False,
-                    "distance": None,
-                })
+            encodings = (
+                await asyncio.to_thread(
+                    face_encodings, cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                )
+                if image is not None
+                else []
+            )
+            if len(encodings) != 1:
+                await websocket.send_json(
+                    {
+                        "type": "recognition_result",
+                        "frame_id": message.frame_id,
+                        "status": "no_face",
+                        "user": "Unknown",
+                        "success": False,
+                        "distance": None,
+                    }
+                )
                 continue
 
             result = recognize_user(
@@ -42,19 +56,26 @@ async def recognize_user_endpoint(websocket: WebSocket, publisher: MQTTPublisher
                 threshold=settings.THRESHOLD_DISTANCE,
             )
 
-            if result.success:
-                publisher.publish(
-                    topic="user/recognized",
-                    message=f"User {result.user} recognized with distance {result.distance:.4f}",
-                )
+            await websocket.send_json(
+                {
+                    "type": "recognition_result",
+                    "frame_id": message.frame_id,
+                    "status": "ok",
+                    "user": result.user,
+                    "success": result.success,
+                    "distance": result.distance,
+                }
+            )
 
-            await websocket.send_json({
-                "type": "recognition_result",
-                "frame_id": message.frame_id,
-                "status": "ok",
-                "user": result.user,
-                "success": result.success,
-                "distance": result.distance,
-            })
+            if result.success:
+                try:
+                    await asyncio.to_thread(
+                        publisher.publish,
+                        topic="user/recognized",
+                        message=f"User {result.user} recognized with distance {result.distance:.4f}",
+                    )
+                except ConnectionError as error:
+                    print(f"MQTT no disponible: {error}")
+
     except WebSocketDisconnect:
         print(f"Client disconnected: {websocket.client}")

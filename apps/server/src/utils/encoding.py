@@ -1,6 +1,5 @@
 from typing import List
 
-import cv2
 import face_recognition
 import numpy as np
 from cv2.typing import MatLike

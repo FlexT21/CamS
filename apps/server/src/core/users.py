@@ -21,9 +21,13 @@ def load_users() -> List[FaceEncoding]:
 
         encodings = []
         for photo in photos_path:
-            image = load_image_file(str(photo))
-            photo_encodings = face_encodings(image)
-            if photo_encodings:
+            try:
+                image = load_image_file(str(photo))
+                photo_encodings = face_encodings(image)
+            except (ValueError, OSError) as error:
+                print(f"Foto omitida: {photo.name}: {error}")
+                continue
+            if len(photo_encodings) == 1:
                 encodings.append(photo_encodings[0])
 
         if len(encodings) >= settings.K_MEANS_CLUSTERS:
