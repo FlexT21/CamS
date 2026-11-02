@@ -6,7 +6,6 @@ from pathlib import Path
 import cv2
 from mediapipe.python.solutions import face_detection, face_mesh
 
-from src.arduino import Arduino
 from src.connection import ServerConnection
 from src.direction_tracker import Direction, PersonTrack
 from src.drawing import (
@@ -20,14 +19,27 @@ from src.occupancy import Occupancy
 from src.request import complete_registration, register_face_image, send_image_to_server
 
 
-async def recognize_track(connection, track, image_bytes, frame_id):
+
+async def recognize_track(connection, track: PersonTrack, image_bytes: bytes) -> None:
+    """Recognize a track without blocking the camera loop indefinitely."""
     try:
         response = await asyncio.wait_for(
             send_image_to_server(connection, frame_id=frame_id, image=image_bytes),
             timeout=5,
         )
-        if response.get("success") and response.get("user") not in (None, "Unknown"):
-            track.recognized_user = response["user"]
+        if response.get("success"):
+            track.recognized_user = response.get("user")
+            track.access_granted = True
+            track.access_message = f"ACCESO ACEPTADO: {track.recognized_user}"
+            print(track.access_message)
+        else:
+            track.access_granted = False
+            track.access_message = (
+                "ACCESO DENEGADO: reconocimiento sin coincidencia: "
+                f"estado={response.get('status')}, "
+                f"distancia={response.get('distance')}"
+            )
+            print(track.access_message)
     except Exception as error:
         print(f"Reconocimiento omitido: {error}")
     finally:
@@ -110,162 +122,158 @@ async def register_user(
 async def main(
     cam,
     *,
-    server_url,
-    recognition_interval,
-    arduino_port=None,
-    line_position=0.25,
-    database=None,
-    registration_username=None,
-    registration_photos=3,
-):
-    connection = ServerConnection(server_url)
+    server_url: str,
+    recognition_interval: float,
+    registration_username: str | None = None,
+    registration_photos: int = 3,
+) -> None:
     cap = cv2.VideoCapture(cam)
-    task = None
-    arduino = None
-    ledger = None
-    track = None
-    frame_id = 0
-    try:
-        if not cap.isOpened():
-            raise RuntimeError(f"No se pudo abrir la cámara o vídeo: {cam}")
-        if registration_username is not None:
-            await register_user(
-                connection, cap, registration_username, registration_photos
-            )
-            return
-        ledger = Occupancy(
-            database
-            or str(Path(__file__).resolve().parents[1] / "data/occupancy.sqlite3")
+    connection = ServerConnection(server_url)
+    await connection.connect()
+
+    if registration_username is not None:
+        await register_user(
+            connection, cap, registration_username, registration_photos
         )
-        if arduino_port:
-            arduino = await asyncio.to_thread(Arduino, arduino_port)
-        else:
-            print(
-                "Arduino desactivado: especifica --arduino-port COM3 (o el puerto de tu placa)."
-            )
-        with (
-            face_detection.FaceDetection(
-                model_selection=1, min_detection_confidence=0.5
-            ) as detector,
-            face_mesh.FaceMesh(
-                max_num_faces=1,
-                refine_landmarks=True,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5,
-            ) as mesh,
-        ):
-            while cap.isOpened():
-                success, image = cap.read()
-                if not success:
-                    print("Fin de vídeo o error de captura.")
-                    break
-                h, w = image.shape[:2]
-                line_x = int((w - 1) * line_position)
-                rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                results = detector.process(rgb)
-                detections = results.detections or []
-                display = cv2.flip(image, 1)
-                # A single identity is supported. Never assign the first of several faces.
-                if len(detections) > 1:
-                    track = None
-                    if task is not None and not task.done():
-                        task.cancel()
-                        await asyncio.gather(task, return_exceptions=True)
-                    cv2.putText(
-                        display,
-                        "Una persona a la vez",
-                        (18, h - 50),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7,
-                        (0, 0, 255),
-                        2,
-                    )
-                elif len(detections) == 1:
-                    bbox = detections[0].location_data.relative_bounding_box
-                    cx = (bbox.xmin + bbox.width / 2) * w
-                    cy = (bbox.ymin + bbox.height / 2) * h
-                    x = w - 1 - cx
-                    if track is None:
-                        track = PersonTrack(
-                            line_x=line_x, dead_zone=max(10, int(w * 0.015))
-                        )
-                    track.update(x)
-                    now = time.monotonic()
-                    # Start recognition before crossing; keep retrying at the requested interval.
-                    if (
-                        track.recognized_user is None
-                        and not track.recognition_pending
-                        and (task is None or task.done())
-                        and now - track.last_recognition_at >= recognition_interval
-                    ):
-                        encoded, jpeg = cv2.imencode(".jpg", image)
-                        if encoded:
-                            track.recognition_pending = True
-                            track.last_recognition_at = now
-                            frame_id += 1
-                            task = asyncio.create_task(
-                                recognize_track(
-                                    connection, track, jpeg.tobytes(), frame_id
-                                )
-                            )
-                    if track.recognized_user:
-                        while track.pending_crossings:
-                            event = track.pending_crossings.pop(0)
-                            event_id = ledger.record(track.recognized_user, event)
-                            if event_id is not None:
-                                signal = "disabled"
-                                if event is Direction.ENTRADA and arduino:
-                                    try:
-                                        await asyncio.to_thread(arduino.entry)
-                                        signal = "acknowledged"
-                                    except Exception as error:
-                                        signal = "failed"
-                                        print(
-                                            f"Fallo de señal Arduino (sin reintento automático): {error}"
-                                        )
-                                if event is Direction.ENTRADA:
-                                    ledger.signal_result(event_id, signal)
-                                print(
-                                    f"{event.value.upper()}: {track.recognized_user}; dentro: {ledger.inside}"
-                                )
-                    if track.is_in_recognition_zone(x):
-                        mesh_results = mesh.process(rgb)
-                        if mesh_results.multi_face_landmarks:
-                            draw_face_mesh(image, mesh_results)
-                            display = cv2.flip(image, 1)
-                    draw_direction_vector(display, compute_display_vector(cx, cy, w, h))
-                    cv2.putText(
-                        display,
-                        track.recognized_user or "Reconociendo...",
-                        (18, 135),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7,
-                        (0, 255, 255),
-                        2,
-                    )
-                elif track is not None and track.mark_missed():
-                    track = None
-                    if task is not None and not task.done():
-                        task.cancel()
-                        await asyncio.gather(task, return_exceptions=True)
-                draw_dashed_line(display, line_x, (255, 0, 0))
-                draw_counter(display, *ledger.totals())
-                cv2.imshow("CamS", display)
-                if cv2.waitKey(5) & 0xFF == 27:
-                    break
-                # OpenCV is synchronous: explicitly let recognition/network tasks run.
-                await asyncio.sleep(0.001)
-    finally:
-        if task is not None and not task.done():
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
         cap.release()
         cv2.destroyAllWindows()
         await connection.close()
-        if arduino:
-            arduino.close()
-        if ledger:
-            ledger.close()
+        return
+
+    tracks: list[PersonTrack] = []
+    entered = 0
+    exited = 0
+
+    with (
+        face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as face_detector,
+        mp_face_mesh_module.FaceMesh(
+            max_num_faces=5, refine_landmarks=True,
+            min_detection_confidence=0.5, min_tracking_confidence=0.5,
+        ) as mesh_detector,
+    ):
+        while cap.isOpened():
+            success, image = cap.read()
+            if not success:
+                continue
+
+            h, w = image.shape[:2]
+            # La línea se dibuja en el frame original y luego se espeja para
+            # que aparezca en el lado derecho de la ventana.
+            line_x_display = int(w * 0.82) - 15
+            line_x_source = w - line_x_display
+            draw_dashed_line(image, line_x_source, (255, 0, 0))
+
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # 1. Tracking continuo, siempre activo
+            detection_results = face_detector.process(rgb_image)
+            detections = []
+            for detection in detection_results.detections or []:
+                bbox = detection.location_data.relative_bounding_box
+                centroid_x = (bbox.xmin + bbox.width / 2) * w
+                centroid_y = (bbox.ymin + bbox.height / 2) * h
+                detections.append((bbox, centroid_x, centroid_y, w - centroid_x))
+
+            # Asociar cada detección con el track más cercano para no mezclar personas.
+            unmatched_tracks = set(range(len(tracks)))
+            matched_tracks = []
+            max_match_distance = max(80, int(w * 0.12))
+            for bbox, centroid_x, centroid_y, display_centroid_x in detections:
+                best_index = None
+                best_distance = float("inf")
+                for index in unmatched_tracks:
+                    track = tracks[index]
+                    distance = (
+                        (display_centroid_x - track.last_centroid_x) ** 2
+                        + (centroid_y - track.last_centroid_y) ** 2
+                    ) ** 0.5
+                    if distance < best_distance:
+                        best_index = index
+                        best_distance = distance
+
+                if best_index is not None and best_distance <= max_match_distance:
+                    unmatched_tracks.remove(best_index)
+                    track = tracks[best_index]
+                else:
+                    track = PersonTrack(
+                        line_x=line_x_display,
+                        recognition_x=w // 2,
+                        dead_zone=max(10, int(w * 0.015)),
+                    )
+                    tracks.append(track)
+                matched_tracks.append((track, bbox, centroid_x, centroid_y, display_centroid_x))
+
+            for index in sorted(unmatched_tracks, reverse=True):
+                if tracks[index].mark_missed():
+                    tracks.pop(index)
+
+            mesh_results = mesh_detector.process(rgb_image) if detections else None
+            if mesh_results and mesh_results.multi_face_landmarks:
+                draw_face_mesh(image, mesh_results)
+
+            flipped_image = cv2.flip(image, 1)
+            completed_tracks = []
+            for track, bbox, centroid_x, centroid_y, display_centroid_x in matched_tracks:
+                vector = compute_display_vector(centroid_x, centroid_y, w, h)
+                draw_direction_vector(flipped_image, vector)
+                event = track.update(display_centroid_x, centroid_y)
+                current_side = track.side_of(display_centroid_x)
+
+                if (
+                    current_side == "left"
+                    and track.is_in_recognition_zone(display_centroid_x)
+                    and track.start_side != "right"
+                ):
+                    if track.recognized_user is None and not track.recognition_pending:
+                        x1 = max(0, int(bbox.xmin * w))
+                        y1 = max(0, int(bbox.ymin * h))
+                        x2 = min(w, int((bbox.xmin + bbox.width) * w))
+                        y2 = min(h, int((bbox.ymin + bbox.height) * h))
+                        face_image = image[y1:y2, x1:x2]
+                        if face_image.size:
+                            track.recognition_pending = True
+                            _, img_encoded = cv2.imencode(".jpg", face_image)
+                            await recognize_track(
+                                connection,
+                                track,
+                                img_encoded.tobytes(),
+                            )
+                else:
+                    cv2.circle(
+                        image,
+                        (int(centroid_x), int(bbox.ymin * h)),
+                        6,
+                        (0, 0, 255),
+                        -1,
+                    )
+
+                if event is not None:
+                    if event is Direction.ENTRADA and track.access_granted:
+                        entered += 1
+                    elif event is Direction.SALIDA:
+                        exited += 1
+                    inside = max(0, entered - exited)
+                    user = track.recognized_user or "Desconocido"
+                    print(
+                        f"Evento: {event.value.upper()} — usuario: {user} — "
+                        f"dentro: {inside}"
+                    )
+                    completed_tracks.append(track)
+
+            tracks = [track for track in tracks if track not in completed_tracks]
+
+            draw_counter(flipped_image, entered, exited, max(0, entered - exited))
+            for track in matched_tracks:
+                if track[0].access_message_until > time.monotonic():
+                    draw_access_status(flipped_image, track[0].access_message)
+                    break
+            cv2.imshow("CamS", flipped_image)
+            if cv2.waitKey(5) & 0xFF == 27:
+                break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    await connection.close()
 
 
 if __name__ == "__main__":
@@ -292,16 +300,22 @@ if __name__ == "__main__":
         help="Counting line as fraction of displayed width (0 to 1).",
     )
     parser.add_argument(
-        "--database", help="Path to persistent SQLite occupancy database"
+        "--photos", type=int, default=3,
+        help="Number of valid photos required during registration.",
     )
-    parser.add_argument("--register", metavar="USERNAME", nargs="?", const="")
-    parser.add_argument("--photos", type=int, default=3)
-    parser.add_argument("--admin", action="store_true")
+    parser.add_argument(
+        "--admin", action="store_true",
+        help="Open the administrative interface.",
+    )
     args = parser.parse_args()
     if args.admin:
         from src.admin import run_admin_interface
 
-        run_admin_interface(args.server)
+        run_admin_interface(
+            args.server,
+            arduino_port=args.arduino_port,
+            arduino_baudrate=args.arduino_baudrate,
+        )
         raise SystemExit(0)
     if args.register == "":
         args.register = input("Nombre de usuario: ").strip()
@@ -329,5 +343,7 @@ if __name__ == "__main__":
             database=args.database,
             registration_username=args.register,
             registration_photos=args.photos,
+            arduino_port=args.arduino_port,
+            arduino_baudrate=args.arduino_baudrate,
         )
     )

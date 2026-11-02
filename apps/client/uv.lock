@@ -105,7 +105,6 @@ dev = [
 requires-dist = [
     { name = "mediapipe", specifier = "==0.10.20" },
     { name = "opencv-python", specifier = ">=4.11.0.86" },
-    { name = "pyserial", specifier = ">=3.5,<4" },
     { name = "websockets", specifier = ">=16.0" },
 ]
 

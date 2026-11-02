@@ -57,7 +57,13 @@ def _credential_hash(value: str) -> bytes:
 class AdminInterface:
     """Desktop control panel for the client features."""
 
-    def __init__(self, default_server: str, default_camera: str = "0") -> None:
+    def __init__(
+        self,
+        default_server: str,
+        default_camera: str = "0",
+        arduino_port: str | None = None,
+        arduino_baudrate: int = 9600,
+    ) -> None:
         self.root = tk.Tk()
         self.root.title("CamS - Inicio de sesión")
         self.root.geometry("760x540")
@@ -67,6 +73,8 @@ class AdminInterface:
         self.camera = tk.StringVar()
         self.camera_devices: dict[str, int] = {}
         self.default_camera = default_camera
+        self.arduino_port = arduino_port
+        self.arduino_baudrate = arduino_baudrate
         self.photos = tk.StringVar(value="3")
         self.username = tk.StringVar()
         self.status = tk.StringVar(value="Listo para iniciar una operación.")
@@ -271,6 +279,8 @@ class AdminInterface:
                     camera,
                     server_url=server_url,
                     recognition_interval=1.0,
+                    arduino_port=self.arduino_port,
+                    arduino_baudrate=self.arduino_baudrate,
                 )
             ),
             "Reconocimiento iniciado",
@@ -327,5 +337,14 @@ class AdminInterface:
         self.root.mainloop()
 
 
-def run_admin_interface(server_url: str) -> None:
-    AdminInterface(default_server=server_url).run()
+def run_admin_interface(
+    server_url: str,
+    *,
+    arduino_port: str | None = None,
+    arduino_baudrate: int = 9600,
+) -> None:
+    AdminInterface(
+        default_server=server_url,
+        arduino_port=arduino_port,
+        arduino_baudrate=arduino_baudrate,
+    ).run()

@@ -1,23 +1,23 @@
-"""USB serial protocol: ASCII 0 turns pin 13 on, ASCII 1 turns it off."""
-
-import time
+import serial
 
 
-class Arduino:
-    def __init__(self, port: str, baudrate: int = 9600):
-        import serial
+class ArduinoSignal:
+    """Send access decisions to an Arduino over a line-based serial protocol."""
 
-        self.serial = serial.Serial(port, baudrate, timeout=1, write_timeout=1)
-        # The Uno resets when its USB serial port opens.
-        time.sleep(2)
-        self.serial.reset_input_buffer()
+    def __init__(self, port: str, baudrate: int = 9600) -> None:
+        self._connection = serial.Serial(port=port, baudrate=baudrate, timeout=1)
 
-    def entry(self):
-        if self.serial.write(b"0") != 1:
-            raise OSError("No se pudo enviar el comando 0 completo")
-        reply = self.serial.readline().strip()
-        if reply != b"LED_ON":
-            raise OSError(f"Arduino no confirmó LED_ON: {reply!r}")
+    def send(self, accepted: bool) -> None:
+        signal = "ACCEPTED\n" if accepted else "DENIED\n"
+        self._connection.write(signal.encode("ascii"))
+        self._connection.flush()
 
-    def close(self):
-        self.serial.close()
+    def close(self) -> None:
+        if self._connection.is_open:
+            self._connection.close()
+
+    def __enter__(self) -> "ArduinoSignal":
+        return self
+
+    def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
+        self.close()
