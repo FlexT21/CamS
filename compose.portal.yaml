@@ -28,7 +28,7 @@ services:
   web:
     build: ./apps/web
     ports:
-      - "127.0.0.1:5173:80"
+      - "127.0.0.1:5173:8080"
     depends_on:
       - portal
     restart: unless-stopped

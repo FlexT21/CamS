@@ -14,7 +14,7 @@ class FaceEncoding(BaseModel):
 class RecognizeUserResponse(BaseModel):
     user: str
     success: bool
-    distance: Optional[float]
+    distance: Optional[float] = None
 
 
 class HealthcheckResponse(BaseModel):

@@ -11,8 +11,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /workspace/apps/server
 
 # Update packages and build dependencies
-RUN apt-get -y update
-RUN apt-get install -y --fix-missing \
+RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
     build-essential \
     cmake \
     gfortran \
@@ -35,7 +34,7 @@ RUN apt-get install -y --fix-missing \
     python3-setuptools \
     software-properties-common \
     zip \
-    && apt-get clean && rm -rf /tmp/* /var/tmp/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install UV from prebuilt image
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
@@ -45,7 +44,7 @@ ENV PATH="/workspace/apps/server/.venv/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=./uv.lock,target=uv.lock \
     --mount=type=bind,source=./pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project
+    uv sync --frozen --no-install-project --no-build
 
 # Copy package files
 COPY ./pyproject.toml \
@@ -63,6 +62,10 @@ COPY ./src ./src
 
 # Sync and compile source code
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --frozen --no-build
+
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /workspace
+USER appuser
 
 CMD [ "python", "-m", "src.main" ]

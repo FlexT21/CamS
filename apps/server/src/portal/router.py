@@ -96,7 +96,7 @@ class Login(Input):
     @classmethod
     def email_format(cls, value):
         value = value.strip().lower()
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+        if not re.fullmatch(r"[^@\s]+@[^@\s.]+(?:\.[^@\s.]+)+", value):
             raise ValueError("Invalid email address")
         return value
 

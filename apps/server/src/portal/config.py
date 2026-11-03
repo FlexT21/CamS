@@ -114,6 +114,5 @@ class Config:
         if (
             not 0 < self.line_fraction < 1
             or not 0 < self.dead_zone_fraction < 0.5
-            or self.confirmation_frames < 1
         ):
             raise ValueError("Invalid crossing confirmation configuration")

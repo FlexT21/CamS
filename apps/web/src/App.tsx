@@ -570,7 +570,7 @@ function Auth({
                 {error || sessionError}
               </div>
             )}
-            <button className="button primary full" disabled={busy}>
+            <button type="submit" className="button primary full" disabled={busy}>
               {busy ? <LoaderCircle size={18} className="spin" /> : null}
               {busy
                 ? "Conectando…"
@@ -1447,7 +1447,11 @@ function Enrollment({
             {success}
           </div>
         )}
-        <button className="button primary full" disabled={busy || !image}>
+        <button
+          type="submit"
+          className="button primary full"
+          disabled={busy || !image}
+        >
           {busy ? (
             <LoaderCircle className="spin" size={17} />
           ) : (

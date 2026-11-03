@@ -3,8 +3,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 build-essential cmake && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace/apps/server
 COPY requirements-portal.txt requirements-vision.txt ./
-RUN pip install -r requirements-portal.txt && pip install -r requirements-vision.txt
+COPY requirements-portal.constraints.txt ./
+RUN pip install --only-binary=:all: -c requirements-portal.constraints.txt -r requirements-portal.txt \
+    && pip install --only-binary=:all: -c requirements-portal.constraints.txt -r requirements-vision.txt
 COPY src ./src
 ENV CAMS_MODELS_DIR=/workspace/.runtime/models
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /workspace/.runtime \
+    && chown -R appuser:appuser /workspace
+USER appuser
 EXPOSE 8765
 CMD ["uvicorn", "src.portal_main:app", "--host", "0.0.0.0", "--port", "8765"]
