@@ -1,5 +1,6 @@
 """Portal configuration; no model, database or hardware is opened on import."""
 
+import math
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,6 +36,10 @@ def models_dir():
             str(Path(__file__).resolve().parents[4] / ".runtime" / "models"),
         )
     )
+
+
+def _is_valid_fraction(value: float) -> bool:
+    return math.isfinite(value) and 0 < value < 1
 
 
 @dataclass(frozen=True)
@@ -111,7 +116,7 @@ class Config:
             )
         if self.recognition_interval <= 0:
             raise ValueError("CAMS_RECOGNITION_INTERVAL must be positive")
-        if self.line_fraction <= 0 or self.line_fraction >= 1:
+        if not _is_valid_fraction(self.line_fraction):
             raise ValueError("Invalid line fraction configuration")
         if not 0 < self.dead_zone_fraction < 0.5:
             raise ValueError("Invalid crossing confirmation configuration")
