@@ -38,8 +38,9 @@ def models_dir():
     )
 
 
-def _is_valid_fraction(value: float) -> bool:
-    return math.isfinite(value) and 0 < value < 1
+def _validate_fraction(value: float, upper_bound: float, message: str) -> None:
+    if not math.isfinite(value) or value <= 0 or value >= upper_bound:
+        raise ValueError(message)
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,11 @@ class Config:
             )
         if self.recognition_interval <= 0:
             raise ValueError("CAMS_RECOGNITION_INTERVAL must be positive")
-        if not _is_valid_fraction(self.line_fraction):
-            raise ValueError("Invalid line fraction configuration")
-        if not 0 < self.dead_zone_fraction < 0.5:
-            raise ValueError("Invalid crossing confirmation configuration")
+        _validate_fraction(
+            self.line_fraction, 1, "Invalid line fraction configuration"
+        )
+        _validate_fraction(
+            self.dead_zone_fraction,
+            0.5,
+            "Invalid crossing confirmation configuration",
+        )
