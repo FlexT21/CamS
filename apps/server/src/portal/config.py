@@ -112,7 +112,9 @@ class Config:
         if self.recognition_interval <= 0:
             raise ValueError("CAMS_RECOGNITION_INTERVAL must be positive")
         if (
-            self.line_fraction <= 0 or self.line_fraction >= 1
+            not (
+                0 < self.line_fraction and self.line_fraction < 1
+            )
             or not 0 < self.dead_zone_fraction < 0.5
         ):
             raise ValueError("Invalid crossing confirmation configuration")
