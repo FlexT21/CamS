@@ -52,6 +52,7 @@ class MonitorSession:
     last_frame: float = -1
     dimensions: tuple | None = None
     pending: list = field(default_factory=list)
+    pending_access: list = field(default_factory=list)
 
 
 class Monitor:
@@ -163,6 +164,7 @@ class Monitor:
                 )
                 if user:
                     track.user = user
+                    session.pending_access.append(user["name"])
             center = (x1 + x2) / 2
             line_x = width * config.line_fraction
             direction = track.crossing(center, line_x, dead_zone)

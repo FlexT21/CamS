@@ -8,8 +8,7 @@
     "editor.formatOnSave": true
   },
   "python.analysis.extraPaths": [
-    "./apps/server",
-    "./apps/client"
+    "./apps/server"
   ],
   "python-envs.pythonProjects": [
     

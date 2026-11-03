@@ -4,7 +4,9 @@ Fecha: 2 de noviembre de 2026.
 
 ## Resultado instalado
 
-Raíz activa: `D:\Vision_Artificial\Vision_Artificial`. React en `apps/web`, adaptador web en `apps/server/src/portal`, entorno independiente `.venv-portal`. Arranque `iniciar_cams.ps1`; el arranque anterior se conserva en `iniciar_escritorio.ps1`.
+Raíz activa: `D:\Vision_Artificial\Vision_Artificial`. React en `apps/web`,
+adaptador web en `apps/server/src/portal`, entorno independiente
+`.venv-portal`. El único arranque es `scripts/start.ps1`.
 
 Los archivos de detección y reconocimiento del cliente y servidor originales se conservaron. El portal usa MediaPipe FaceDetection/FaceMesh y llama a `src.utils.face_encodings` y `src.services.users.recognize_user`. Se mantienen distancia euclídea, `THRESHOLD_DISTANCE`, confirmación con una coincidencia, reintentos cada segundo y video espejado. El conteo y el historial se presentan en React. No se utiliza YOLO ni SFace.
 

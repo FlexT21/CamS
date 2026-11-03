@@ -1,25 +1,27 @@
 # CamS web con los motores vigentes de Vision Artificial
 
-El portal React se integró en esta carpeta sin sustituir MediaPipe ni face-recognition/dlib. El código original de `apps/client/src` y `apps/server/src/services` sigue vigente. El servidor web lo reutiliza mediante adaptadores; no arranca YOLO, SFace ni ByteTrack.
+El portal React usa MediaPipe y face-recognition/dlib mediante los adaptadores
+del servidor. No arranca YOLO, SFace ni ByteTrack.
 
 ## Inicio
 
 ```powershell
 cd D:\Vision_Artificial\Vision_Artificial
-.\iniciar_cams.ps1
+.\scripts\start.ps1
 ```
 
-Abre http://127.0.0.1:5173. API: http://127.0.0.1:8765/api/portal. El navegador abre la cámara; no ejecutes simultáneamente el cliente de escritorio. `scripts/stop.ps1` detiene solo los procesos administrados de esta carpeta. `iniciar_escritorio.ps1` conserva el arranque anterior.
+Abre http://127.0.0.1:5173. API: http://127.0.0.1:8765/api/portal. El navegador abre la cámara. `scripts/stop.ps1` detiene los procesos administrados.
 
 ## Reconocimiento y conteo
 
 MediaPipe FaceDetection detecta un rostro a la vez; el video se muestra espejado como antes. La malla MediaPipe FaceMesh aparece cerca de la línea. El JPEG original, sin anotaciones y sin espejar los píxeles, se procesa con `src.utils.face_encodings`. La identificación llama al mismo `src.services.users.recognize_user` que usa el servidor anterior, con distancia euclídea y `THRESHOLD_DISTANCE` (0.52 en esta instalación).
 
-Se reintenta cada segundo mientras no haya identidad; una coincidencia confirma el rostro, como en el cliente previo. La identidad se conserva durante la trayectoria. Si cruza antes de identificarse, el cruce espera mientras siga visible. Rostros sin confirmar no aumentan el contador ni activan Arduino. Si aparecen varios rostros, no se elige arbitrariamente el primero.
+Se reintenta cada segundo mientras no haya identidad; una coincidencia confirma el rostro, como en el cliente previo. La identidad se conserva durante la trayectoria. Si cruza antes de identificarse, el cruce espera mientras siga visible. Rostros sin confirmar no aumentan el contador ni generan una señal de acceso. Si aparecen varios rostros, no se elige arbitrariamente el primero.
 
 En la imagen mostrada: izquierda → derecha es entrada (+1), derecha → izquierda es salida (−1). Se usa el centro del rostro, no una caja de cuerpo YOLO. La línea está al 25 % del ancho y tiene una banda neutra de ±max(10 píxeles, 1.5 % del ancho). Los eventos guardados aparecen en los contadores e historial web; la presencia es una estimación basada en entradas menos salidas, sin valores negativos.
 
-Registro: captura el rostro en el módulo de personas; se guarda el JPEG y el embedding dlib con la marca `encoding_engine=face_recognition_dlib`. Las imágenes importadas del portal anterior se recodifican localmente con el motor vigente para evitar mezclar descriptores de otro algoritmo. Las carpetas de fotografías originales de `apps/server/users` se conservan; el alta web sigue separada por cuenta y no comparte automáticamente rostros de una cuenta con otra.
+Registro: captura el rostro en el módulo de personas; se guarda el JPEG y el embedding dlib con la marca `encoding_engine=face_recognition_dlib`. Las imágenes importadas del portal anterior se recodifican localmente con el motor vigente para evitar mezclar descriptores de otro algoritmo. El alta web guarda los rostros en la base de datos de la cuenta y no comparte
+automáticamente rostros entre cuentas.
 
 ## Base de datos y Supabase
 
@@ -31,9 +33,12 @@ SQLite local en `.runtime/portal.sqlite3`, o PostgreSQL configurado mediante `SU
 
 Este comando crea/verifica `cams_users`, `cams_sessions`, `cams_persons`, `cams_events`; sin credenciales falla explícitamente. El esquema está en `supabase/migrations/202611020001_portal_schema.sql`. Usa RLS y revoca el acceso de los roles públicos; las operaciones pasan por FastAPI y filtran el propietario. La autenticación propia de CamS se conserva. Consulta [SYSTEM.md](SYSTEM.md).
 
-## Arduino Nano
+## Control de acceso
 
-COM3 a 9600 baudios. Entrada envía `0` más LF para encender D13; salida envía `1` más LF para apagarlo. El firmware responde `ACK 0` / `ACK 1`; sin respuesta, no se confirma la entrega. El sketch está en `arduino/door_access/door_access.ino`. La carga física anterior falló al verificar la memoria del Nano y sigue pendiente de resolver; la integración web no repara ese fallo.
+El portal controla el receptor `COM3` a 9600 baudios. Carga
+`micro/CamSAccessReceiver/CamSAccessReceiver.ino` en el Arduino. El portal
+envía `ACCEPTED` al confirmar una identidad de entrada; después la tarjeta RFID
+autorizada habilita el relé.
 
 ## Verificación
 

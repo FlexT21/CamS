@@ -788,8 +788,7 @@ class PureTests(unittest.TestCase):
         bridge = EventBridge(Config(database_url="", serial_port="test", mqtt_host=""))
         device = MagicMock()
         device.is_open = True
-        device.write.return_value = 2
-        device.readline.return_value = b"ACK 0\r\n"
+        device.write.return_value = 9
         with (
             patch("serial.Serial", return_value=device),
             patch("src.portal.bridge.time.monotonic", return_value=100),
@@ -799,7 +798,7 @@ class PureTests(unittest.TestCase):
             device.write.assert_not_called()
             bridge._serial_event({"direction": "entrada"})
             wait.assert_called_once_with(2)
-            device.write.assert_called_once_with(b"0\n")
+            device.write.assert_called_once_with(b"ACCEPTED\n")
         bridge.close()
 
     def test_connection_failures_throttle_retry(self):
@@ -837,24 +836,22 @@ class PureTests(unittest.TestCase):
 
         bridge = EventBridge(Config(database_url="", serial_port="test", mqtt_host=""))
         bridge.serial = MagicMock()
-        bridge.serial.write.return_value = 2
-        bridge.serial.readline.side_effect = [b"ACK 0\r\n", b"ACK 1\r\n"]
+        bridge.serial.write.return_value = 9
         bridge._serial_event({"direction": "entrada"})
         bridge._serial_event({"direction": "salida"})
         self.assertEqual(bridge.status()["serial"], "connected")
         self.assertEqual(
             [call.args[0] for call in bridge.serial.write.call_args_list],
-            [b"0\n", b"1\n"],
+            [b"ACCEPTED\n"],
         )
         bridge.close()
 
-    def test_serial_missing_ack_is_not_reported_as_delivered(self):
+    def test_serial_write_failure_is_not_reported_as_delivered(self):
         from unittest.mock import MagicMock
 
         bridge = EventBridge(Config(database_url="", serial_port="test", mqtt_host=""))
         device = MagicMock()
-        device.write.return_value = 2
-        device.readline.return_value = b""
+        device.write.return_value = 0
         bridge.serial = device
         bridge._serial_event({"direction": "entrada"})
         self.assertIsNone(bridge.serial)

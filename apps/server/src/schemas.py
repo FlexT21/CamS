@@ -21,17 +21,3 @@ class HealthcheckResponse(BaseModel):
     status: str
     message: str
     extra: Dict[str, Any]
-
-
-class WebSocketMessage(BaseModel):
-    type: str
-    frame_id: int
-    device_id: str
-    username: Optional[str] = None
-    image: Optional[bytes] = None
-
-
-class WebSocketResponse(BaseModel):
-    type: str = "ack"
-    frame_id: int
-    status: str = "accepted"

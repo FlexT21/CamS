@@ -16,25 +16,25 @@ Instalación del 2 de noviembre de 2026. Raíz de trabajo: `D:\Vision_Artificial
 | Arduino | CamSAccessReceiver, COM3 a 9600 baudios, RFID + relé |
 | Mensajería | Mosquitto local, topic `cams/events` |
 
-El cliente de escritorio original en `apps/client` y los servicios anteriores del servidor se conservan. React agrega el conteo e historial web alrededor de los motores vigentes. **No se sustituyen por YOLO ni SFace.** La referencia copiada de esos motores quedó archivada en `.runtime/cams-reference`, fuera del arranque.
+El portal web es el único cliente activo. Usa los motores vigentes y no
+sustituye el reconocimiento por YOLO ni SFace.
 
 ## Arranque y parada
 
 Desde la raíz:
 
 ```powershell
-.\iniciar_cams.ps1
-# Equivalente con dependencias y modelos ya instalados:
-.\scripts\start.ps1 -SkipVision -SkipModels
+.\scripts\start.ps1
 # Parada del portal de esta carpeta:
 .\scripts\stop.ps1
 ```
 
 Interfaz: http://127.0.0.1:5173. API: http://127.0.0.1:8765/api/portal.
 
-Para una instalación nueva, `./iniciar_cams.ps1 -InstalarVision` instala las dependencias y comprueba los modelos vigentes. Python usa `.venv-portal` de esta carpeta. Las versiones del entorno integrado se conservan en `apps/server/requirements-portal.constraints.txt`; las dependencias MediaPipe/dlib están fijadas en `requirements-vision.txt`; no se instala Torch/YOLO. React conserva `package-lock.json`.
-
-Para usar el cliente anterior, ejecuta `./iniciar_escritorio.ps1` con el portal detenido: comparten el puerto 8765 y la cámara. La documentación histórica está en SYSTEM-LEGACY.md. Los directorios de origen y destino no deben ejecutar instancias simultáneas sobre 8765/5173/COM3.
+Para una instalación nueva, `scripts/start.ps1` instala las dependencias y
+comprueba los modelos vigentes. Python usa `.venv-portal`. Las dependencias
+MediaPipe/dlib están fijadas en `apps/server/requirements-vision.txt`; no se
+instala Torch/YOLO.
 
 ## Supabase
 
@@ -64,7 +64,8 @@ Referencia: [conexión PostgreSQL de Supabase](https://supabase.com/docs/guides/
 
 En la imagen visible espejada, igual que en el cliente anterior, izquierda → derecha = entrada (+1); derecha → izquierda = salida (−1). Se conserva el lado e identidad durante retornos. La banda neutra es ±max(10 píxeles, 1.5 % del ancho), y la línea está al 25 % del ancho. Solo cuentan cruces con reconocimiento confirmado; los pendientes esperan mientras vive el track.
 
-El cliente envía `ACCEPTED` más LF cuando la cámara reconoce a una persona.
+El portal web envía `ACCEPTED` más LF cuando la cámara reconoce a una persona y
+se confirma su entrada. Usa COM3 a 9600 baudios durante `scripts/start.ps1`.
 `CamSAccessReceiver.ino` espera entonces una tarjeta RFID autorizada durante 10
 segundos antes de activar el relé del pin 7, el LED verde del pin 8 y el buzzer
 del pin 4. Una tarjeta no autorizada no abre la cerradura.

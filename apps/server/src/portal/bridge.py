@@ -1,4 +1,4 @@
-"""Best-effort output of committed server-generated crossings, never client commands."""
+"""Best-effort output of committed server-generated access events."""
 
 import json
 import logging
@@ -65,6 +65,25 @@ class EventBridge:
                     logger.warning(
                         "Portal hardware queue full; committed event not delivered"
                     )
+
+    def publish_access(self, person_name):
+        """Notify the Arduino that the camera accepted the next entry."""
+        if not self.config.serial_port:
+            return
+        with self.lock:
+            if self.stopping.is_set():
+                self.dropped += 1
+                return
+            try:
+                self.queue.put_nowait(
+                    {
+                        "direction": "entrada",
+                        "id": f"camera-access:{person_name}:{time.monotonic_ns()}",
+                    }
+                )
+            except queue.Full:
+                self.dropped += 1
+                logger.warning("Portal hardware queue full; camera access not delivered")
 
     def _close_serial(self):
         device, self.serial = self.serial, None
@@ -170,18 +189,18 @@ class EventBridge:
             remaining = self.serial_ready_at - time.monotonic()
             if remaining > 0 and self.stopping.wait(remaining):
                 return
-            payload = b"0\n" if event["direction"] == "entrada" else b"1\n"
+            if event["direction"] != "entrada":
+                self.serial_state = "connected"
+                return
+            payload = b"ACCEPTED\n"
             self.serial.reset_input_buffer()
             if self.serial.write(payload) != len(payload):
                 raise OSError("Incomplete serial write")
-            expected = b"ACK " + payload.strip()
-            if self.serial.readline().strip() != expected:
-                raise OSError("Arduino did not acknowledge the LED command")
             self.serial_state = "connected"
-        except Exception:
+        except Exception as error:
             self._close_serial()
             self.serial_retry_at = time.monotonic() + 2
-            logger.warning("Portal serial delivery failed")
+            logger.warning("Portal serial delivery failed: %s", error)
 
     def _mqtt_event(self, event):
         if not self.config.mqtt_host or event.get("direction") not in (

@@ -304,6 +304,9 @@ def frame(payload: Frame, user=Depends(authenticated)):
         tracks = portal.monitor.process(
             session, payload.session_id, image, portal.db.encodings(user["id"])
         )
+        for person_name in session.pending_access:
+            portal.bridge.publish_access(person_name)
+        session.pending_access.clear()
         new_events = portal.db.save_events(user["id"], session.pending)
         session.pending.clear()
         if new_events:

@@ -116,14 +116,19 @@ try {
     }
     if ($installVision -and !(Test-Path -LiteralPath (Join-Path $server 'requirements-vision.txt'))) { throw 'Missing apps/server/requirements-vision.txt; use -SkipVision for dashboard-only setup.' }
     if ($downloadMissingModels -and !(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'download_models.py'))) { throw 'Missing scripts/download_models.py; use -SkipModels if models are already provisioned.' }
-    $py = (Get-Command py.exe -ErrorAction Stop).Source
+    $uv = (Get-Command uv.exe -ErrorAction SilentlyContinue)
+    if (!$uv) { $uv = (Get-Command uv -ErrorAction SilentlyContinue) }
+    if (!$uv) {
+        throw "No se encontró uv. Instálalo desde https://docs.astral.sh/uv/getting-started/installation/."
+    }
+    $uv = $uv.Source
     $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
     # Keep installer caches and temporary files on the project drive.
     $env:UV_CACHE_DIR = Join-Path $runtime 'uv-cache'
     $env:TEMP = Join-Path $runtime 'install-temp'
     $env:TMP = $env:TEMP
     New-Item -ItemType Directory -Path $env:TEMP -Force | Out-Null
-    Invoke-Checked $py @('-3', '-m', 'uv', '--version')
+    Invoke-Checked $uv @('--version')
     foreach ($port in @(8765, 5173)) { if (Test-Port $port) { throw "Port $port is already in use." } }
     New-Item -ItemType Directory -Path $runtime -Force | Out-Null
     if (!(Test-Path -LiteralPath (Join-Path $root '.env'))) {
@@ -133,13 +138,15 @@ try {
     $started = $true
     $venv = Join-Path $root '.venv-portal'
     $python = Join-Path $venv 'Scripts/python.exe'
-    if (!(Test-Path -LiteralPath $python)) { Invoke-Checked $py @('-3', '-m', 'uv', 'venv', '--python', '3.12', $venv) }
-    Invoke-Checked $py @('-3', '-m', 'uv', 'pip', 'install', '--python', $python, '-r', (Join-Path $server 'requirements-portal.txt'), '-c', (Join-Path $server 'requirements-portal.constraints.txt'))
+    if (!(Test-Path -LiteralPath $python)) { Invoke-Checked $uv @('venv', '--python', '3.12', $venv) }
+    Invoke-Checked $uv @('pip', 'install', '--python', $python, '-r', (Join-Path $server 'requirements-portal.txt'), '-c', (Join-Path $server 'requirements-portal.constraints.txt'))
     if ($installVision) {
+        Invoke-Checked $uv @('pip', 'install', '--python', $python, 'cmake')
+        $env:Path = (Join-Path $venv 'Scripts') + ';' + $env:Path
         $localWheels = Join-Path $runtime 'wheels'
         New-Item -ItemType Directory -Path $localWheels -Force | Out-Null
-        Invoke-Checked $py @('-3', '-m', 'uv', 'pip', 'install', '--python', $python, '--find-links', $localWheels, '-r', (Join-Path $server 'requirements-vision.txt'), '-c', (Join-Path $server 'requirements-portal.constraints.txt'))
-        Invoke-Checked $python @('-c', 'import mediapipe, dlib, face_recognition; print("Existing MediaPipe/dlib engines available")')
+        Invoke-Checked $uv @('pip', 'install', '--python', $python, '--find-links', $localWheels, '-r', (Join-Path $server 'requirements-vision.txt'), '-c', (Join-Path $server 'requirements-portal.constraints.txt'))
+        Invoke-Checked $python @('-c', 'import mediapipe, dlib, face_recognition')
     }
     if ($downloadMissingModels) { Invoke-Checked $python @((Join-Path $PSScriptRoot 'download_models.py')) }
     Push-Location $web
@@ -195,12 +202,14 @@ try {
     if (!$mqtt) { Write-Warning 'MQTT IS UNAVAILABLE. The dashboard can start, but live MQTT events will not work. Install/start Docker or Mosquitto separately and retry.' }
     # portal_main loads the root .env itself. Pin the local development endpoints.
     $savedEnv = @{}
-    foreach ($name in @('SERVER_HOST', 'SERVER_PORT', 'MQTT_BROKER_ADDRESS', 'MQTT_BROKER_PORT')) { $savedEnv[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
+    foreach ($name in @('SERVER_HOST', 'SERVER_PORT', 'MQTT_BROKER_ADDRESS', 'MQTT_BROKER_PORT', 'SERIAL_PORT', 'CAMS_SERIAL_BAUD')) { $savedEnv[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
     try {
         $env:SERVER_HOST = '127.0.0.1'
         $env:SERVER_PORT = '8765'
         $env:MQTT_BROKER_ADDRESS = '127.0.0.1'
         $env:MQTT_BROKER_PORT = '1883'
+        $env:SERIAL_PORT = 'COM3'
+        $env:CAMS_SERIAL_BAUD = '9600'
         $backendId = Start-Owned 'backend' $python '-m src.portal_main' $server
     } finally { foreach ($name in $savedEnv.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnv[$name], 'Process') } }
     Wait-OwnedPort 8765 $backendId 'Backend'
