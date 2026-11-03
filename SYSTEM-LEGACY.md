@@ -10,7 +10,9 @@ Especificación revisada el 2 de noviembre de 2026. El pin solicitado es **13**.
 4. Derecha → izquierda: **entrada**. Izquierda → derecha: **salida**. Aparecer, desaparecer o permanecer sobre un lado no cuenta.
 5. Si el cruce ocurre mientras llega la respuesta, queda pendiente en el track y se aplica al confirmar la identidad. Si se pierde el track antes de identificarlo, se descarta. Un rostro no reconocido nunca activa el LED.
 6. La entrada agrega la identidad a las personas dentro. Una entrada repetida para la misma identidad se ignora hasta que se registre su salida. La salida elimina la identidad; si no estaba dentro, se ignora. El conteo nunca es negativo.
-7. Cada entrada aceptada se guarda y envía ASCII `0` por USB serie al Arduino, si el puerto fue configurado. Una salida no envía comandos al LED.
+7. Cada persona aceptada por cámara envía `ACCEPTED` al Arduino; el sketch
+   `micro/CamSAccessReceiver/CamSAccessReceiver.ino` exige después una tarjeta
+   RFID autorizada antes de abrir la cerradura.
 
 ## Preparación y ejecución en Windows
 
@@ -34,17 +36,10 @@ uv run python -m src.main 0 --server ws://localhost:8765/api/ws/ --arduino-port 
 
 Reemplaza COM3 por el puerto real. Alternativa con los entornos `.venv312` ya instalados: desde la raíz, `./iniciar_cams.ps1 -ArduinoPort COM3`. El script necesita Mosquitto instalado. Para actualizar un entorno existente: `./apps/client/.venv312/Scripts/python.exe -m pip install pyserial==3.5`.
 
-Sin `--arduino-port`, el programa conserva el conteo y avisa que Arduino está desactivado. Si un puerto configurado no abre, falla con un error en lugar de fingir que envió la señal. Cierra el monitor serie antes de ejecutar el cliente.
-
-## Arduino Uno, pin 13
-
-Abre `arduino/occupancy_led/occupancy_led.ino` en Arduino IDE, elige Arduino Uno y el puerto correspondiente, y carga el programa. El LED integrado permite comprobar el pin 13 sin cablear un LED adicional.
-
-| Entrada serie | Acción física | Confirmación |
-| --- | --- | --- |
-| Carácter `0` (ASCII 0x30) | `digitalWrite(13, HIGH)` | `LED_ON` con salto de línea |
-| Carácter `1` (ASCII 0x31) | `digitalWrite(13, LOW)` | `LED_OFF` con salto de línea |
-| Otros caracteres | Sin cambios | Ninguna |
+El sketch vigente es `micro/CamSAccessReceiver/CamSAccessReceiver.ino`.
+`ACCEPTED` habilita durante 10 segundos la confirmación de una tarjeta RFID;
+solo una tarjeta autorizada activa el relé. Cierra el monitor serie antes de
+ejecutar el cliente.
 
 Velocidad: 9600 baudios, 8N1. El cero es un comando de aplicación; para encender el LED se escribe HIGH en el pin. No se envía un byte NUL ni se aplica LOW al pin. Al abrir el puerto se esperan dos segundos por el reinicio del Uno. El LED queda encendido después de la entrada; no se apaga al salir ni al cerrar el cliente. Se apaga con `1` o al reiniciar la placa.
 

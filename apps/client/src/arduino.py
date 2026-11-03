@@ -21,3 +21,6 @@ class ArduinoSignal:
 
     def __exit__(self, _exc_type, _exc_value, _traceback) -> None:
         self.close()
+
+
+Arduino = ArduinoSignal

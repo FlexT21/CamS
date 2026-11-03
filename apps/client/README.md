@@ -58,14 +58,6 @@ puedes cambiarlo con `--arduino-port` cuando uses otro puerto.
 
 La ventana muestra la línea azul a la izquierda. En la imagen espejada: derecha → izquierda = entrada; izquierda → derecha = salida. Solo cuentan identidades reconocidas. El total y los eventos se conservan en `data/occupancy.sqlite3`.
 
-Con Arduino Uno conectado, carga `../../arduino/occupancy_led/occupancy_led.ino` y ejecuta:
-
-```powershell
-uv run python -m src.main 0 --arduino-port COM3
-```
-
-Cada entrada nueva envía ASCII `0` a 9600 baudios para encender el pin 13. Reemplaza COM3 por el puerto de tu placa. El LED permanece encendido; ASCII `1` lo apaga manualmente. Sin `--arduino-port` funciona el conteo y se informa que la señal está desactivada.
-
 Consulta [SYSTEM.md](../../SYSTEM.md) y [VERIFICACION.md](../../VERIFICACION.md).
 
 ## Opciones

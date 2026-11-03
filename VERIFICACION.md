@@ -29,7 +29,9 @@ Fecha: 2 de noviembre de 2026. Revisión de los módulos Python de cliente y ser
 **10 pruebas automatizadas aprobadas**, con Python 3.12 en los entornos locales `.venv312`:
 
 - Cliente: siete pruebas, incluyendo el bucle de cámara simulado de entrada y salida, reconocimiento que responde después del cruce, una sola señal por entrada, banda de tolerancia, pérdida de track, persistencia y duplicados.
-- Arduino: escritura exacta de `b'0'`, lectura de `LED_ON`, error sin confirmación y cierre de puerto, mediante puerto simulado.
+- Arduino: escritura exacta de `b'ACCEPTED\n'` y cierre de puerto mediante
+  puerto simulado; el firmware `CamSAccessReceiver` confirma después la tarjeta
+  RFID.
 - Red: intercambio real en localhost con un servidor WebSocket de prueba y cancelación de una solicitud pendiente.
 - Servidor: tres pruebas sobre base de reconocimiento vacía, coincidencia y rechazo por umbral, conversión RGB y ruta FastAPI WebSocket con JPEG inválido/vacío y varios rostros.
 - Ruff: todos los archivos fuente y pruebas pasan el análisis; formato aplicado.

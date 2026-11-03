@@ -2,7 +2,7 @@ import asyncio
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from websockets.asyncio.server import serve
 
@@ -52,16 +52,11 @@ class CountingTests(unittest.TestCase):
             self.assertEqual(ledger.totals(), (3, 2, 1))
             ledger.close()
 
-    def test_arduino_zero_and_ack(self):
-        with patch("serial.Serial") as serial, patch("src.arduino.time.sleep"):
-            serial.return_value.write.return_value = 1
-            serial.return_value.readline.return_value = b"LED_ON\r\n"
+    def test_arduino_camera_acceptance_signal(self):
+        with patch("serial.Serial") as serial:
             board = Arduino("COM_TEST")
-            board.entry()
-            serial.return_value.write.assert_called_once_with(b"0")
-            serial.return_value.readline.return_value = b""
-            with self.assertRaises(OSError):
-                board.entry()
+            board.send(True)
+            serial.return_value.write.assert_called_once_with(b"ACCEPTED\n")
             board.close()
             serial.return_value.close.assert_called_once()
 
@@ -121,7 +116,11 @@ class CameraFlowTests(unittest.IsolatedAsyncioTestCase):
         from src import main as camera
 
         # Coordinates are in the mirrored display: right -> left, absence, left -> right.
-        positions = [0.8] * 4 + [0.1] * 6 + [None] * 10 + [0.1] * 4 + [0.8] * 6
+        positions = (
+            [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+            + [None] * 10
+            + [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+        )
         detections = []
         for x in positions:
             bbox = SimpleNamespace(
@@ -163,6 +162,9 @@ class CameraFlowTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             database = str(Path(directory) / "occupancy.db")
             with (
+                patch.object(
+                    camera.ServerConnection, "connect", new=AsyncMock()
+                ),
                 patch.object(camera.cv2, "VideoCapture", return_value=cap),
                 patch.object(camera.cv2, "imshow"),
                 patch.object(camera.cv2, "waitKey", return_value=0),
@@ -171,7 +173,7 @@ class CameraFlowTests(unittest.IsolatedAsyncioTestCase):
                     camera.face_detection, "FaceDetection", return_value=detector
                 ),
                 patch.object(camera.face_mesh, "FaceMesh", return_value=mesh),
-                patch.object(camera, "Arduino", return_value=board),
+                patch.object(camera, "ArduinoSignal", return_value=board),
                 patch.object(camera, "send_image_to_server", side_effect=recognize),
             ):
                 await camera.main(
@@ -190,7 +192,7 @@ class CameraFlowTests(unittest.IsolatedAsyncioTestCase):
                 "acknowledged",
             )
             ledger.close()
-            board.entry.assert_called_once()
+            board.send.assert_called_once_with(True)
             board.close.assert_called_once()
             cap.release.assert_called_once()
 

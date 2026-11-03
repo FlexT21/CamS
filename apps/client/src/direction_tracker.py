@@ -15,10 +15,14 @@ class PersonTrack:
     max_missed_frames: int = 8
 
     last_centroid_x: float = 0.0
+    last_centroid_y: float = 0.0
     last_side: Optional[str] = None
     start_side: Optional[str] = None
     missed_frames: int = 0
     recognized_user: Optional[str] = None
+    access_granted: Optional[bool] = None
+    access_message: Optional[str] = None
+    access_message_until: float = 0.0
     recognition_pending: bool = False
     last_recognition_at: float = float("-inf")
     pending_crossings: list[Direction] = field(default_factory=list)
@@ -39,11 +43,14 @@ class PersonTrack:
     def is_in_recognition_zone(self, centroid_x: float) -> bool:
         # zona amplia alrededor del centro, donde asumimos que la persona
         # queda razonablemente de frente a la cámara durante el cruce
-        margin = max(self.dead_zone * 3, 80)
+        margin = max(self.dead_zone * 3, 100)
         return (self.line_x - margin) <= centroid_x <= (self.line_x + margin)
 
-    def update(self, centroid_x: float) -> Optional[Direction]:
+    def update(
+        self, centroid_x: float, centroid_y: float = 0.0
+    ) -> Optional[Direction]:
         self.last_centroid_x = centroid_x
+        self.last_centroid_y = centroid_y
         self.missed_frames = 0
 
         side = self.side_of(centroid_x)

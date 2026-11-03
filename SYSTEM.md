@@ -13,7 +13,7 @@ Instalación del 2 de noviembre de 2026. Raíz de trabajo: `D:\Vision_Artificial
 | Identificación | `face-recognition/dlib`, reutiliza `src.utils.face_encodings` y `src.services.users.recognize_user`; distancia euclídea con `THRESHOLD_DISTANCE=0.52` |
 | Cadencia | Un intento por segundo mientras no esté reconocido; confirma con una coincidencia y conserva la identidad |
 | Persistencia | SQLite local o PostgreSQL/Supabase mediante psycopg |
-| Arduino | Nano, COM3 a 9600 baudios, pin 13 |
+| Arduino | CamSAccessReceiver, COM3 a 9600 baudios, RFID + relé |
 | Mensajería | Mosquitto local, topic `cams/events` |
 
 El cliente de escritorio original en `apps/client` y los servicios anteriores del servidor se conservan. React agrega el conteo e historial web alrededor de los motores vigentes. **No se sustituyen por YOLO ni SFace.** La referencia copiada de esos motores quedó archivada en `.runtime/cams-reference`, fuera del arranque.
@@ -64,9 +64,12 @@ Referencia: [conexión PostgreSQL de Supabase](https://supabase.com/docs/guides/
 
 En la imagen visible espejada, igual que en el cliente anterior, izquierda → derecha = entrada (+1); derecha → izquierda = salida (−1). Se conserva el lado e identidad durante retornos. La banda neutra es ±max(10 píxeles, 1.5 % del ancho), y la línea está al 25 % del ancho. Solo cuentan cruces con reconocimiento confirmado; los pendientes esperan mientras vive el track.
 
-Entrada envía ASCII `0` más LF para poner el pin 13 HIGH; salida envía `1` más LF para ponerlo LOW. El backend exige `ACK 0` / `ACK 1`. El estado `unverified` significa que el puerto abrió, pero el firmware todavía no confirmó una orden.
+El cliente envía `ACCEPTED` más LF cuando la cámara reconoce a una persona.
+`CamSAccessReceiver.ino` espera entonces una tarjeta RFID autorizada durante 10
+segundos antes de activar el relé del pin 7, el LED verde del pin 8 y el buzzer
+del pin 4. Una tarjeta no autorizada no abre la cerradura.
 
-El sketch está en `arduino/door_access/door_access.ino`. La placa de esta instalación es Arduino Nano con cargador que responde a 57600 baudios (distintos de los 9600 de operación). La última carga falló al verificar la memoria. Esta copia conserva esa limitación: no se afirma encendido físico del LED.
+El sketch está en `micro/CamSAccessReceiver/CamSAccessReceiver.ino`.
 
 ## Datos, respaldo y límites
 

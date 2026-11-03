@@ -182,7 +182,7 @@ Opciones disponibles:
 | `cam` | `0` | Índice de cámara o ruta de vídeo. |
 | `--server`, `-s` | `ws://localhost:8765/api/ws/` | URL WebSocket del servidor. |
 | `--interval` | `1.0` | Segundos entre intentos de reconocimiento. |
-| `--arduino-port` | desactivado | Puerto USB serie del Arduino, por ejemplo `COM3`. |
+| `--arduino-port` | `COM3` | Puerto USB serie del Arduino. Usa `CamSAccessReceiver.ino`. |
 | `--line-position` | `0.25` | Posición de la línea respecto al ancho de la imagen mostrada. |
 | `--database` | `apps/client/data/occupancy.sqlite3` | Base SQLite de ocupación y eventos. |
 
@@ -190,7 +190,11 @@ Pulsa `Esc` en la ventana de vídeo para cerrar el cliente.
 
 Durante la ejecución, el cliente muestra una línea azul punteada en el lado izquierdo (25 % del ancho de la imagen espejada). Un cruce de **derecha a izquierda es entrada (+1)**; uno de **izquierda a derecha es salida (−1)**. Solo se registra el cruce después de confirmar una identidad. El registro SQLite conserva las personas dentro y los eventos al reiniciar. Una identidad ya dentro no vuelve a sumar por otro cruce de entrada; una identidad fuera no genera una salida negativa.
 
-Para activar el LED del pin **13 del Arduino Uno**, carga `arduino/occupancy_led/occupancy_led.ino` y ejecuta el cliente con `--arduino-port COM3`, sustituyendo COM3 por el puerto real. Cada entrada válida envía el carácter ASCII `0` a 9600 baudios y espera `LED_ON`. El LED queda encendido hasta recibir `1` o reiniciar la placa. El reconocimiento facial por sí solo no envía el comando.
+Para usar el control de acceso, carga `micro/CamSAccessReceiver/CamSAccessReceiver.ino`
+en el Arduino y ejecuta el cliente con `--arduino-port COM3`. La cámara envía
+`ACCEPTED`; el Arduino abre una ventana de 10 segundos para confirmar una tarjeta
+RFID autorizada antes de activar el relé, el LED verde y el buzzer. La señal de
+cámara por sí sola no abre la cerradura.
 
 Consulta [SYSTEM.md](SYSTEM.md) para instalación, protocolo, registro persistente, pruebas y límites de operación.
 
