@@ -6,7 +6,6 @@ del servidor. No arranca YOLO, SFace ni ByteTrack.
 ## Inicio
 
 ```powershell
-cd D:\Vision_Artificial\Vision_Artificial
 .\scripts\start.ps1
 ```
 

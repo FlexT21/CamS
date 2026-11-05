@@ -1,6 +1,7 @@
 # CamS integrado en Vision Artificial
 
-Instalación del 2 de noviembre de 2026. Raíz de trabajo: `D:\Vision_Artificial\Vision_Artificial`.
+La documentación y los comandos se
+refieren a la raíz del repositorio actual; no dependen de una ruta fija.
 
 ## Componentes y motores
 

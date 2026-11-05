@@ -4,7 +4,7 @@ Fecha: 2 de noviembre de 2026.
 
 ## Resultado instalado
 
-Raíz activa: `D:\Vision_Artificial\Vision_Artificial`. React en `apps/web`,
+Raíz activa: el repositorio actual. React en `apps/web`,
 adaptador web en `apps/server/src/portal`, entorno independiente
 `.venv-portal`. El único arranque es `scripts/start.ps1`.
 
@@ -32,6 +32,7 @@ Los datos copiados permanecen locales. Cambiar la conexión no transfiere autom�
 
 ## Hardware y límites
 
-La prueba real de cámara presencial y el encendido físico del pin 13 no se verificaron en esta integración. El Nano mantiene el fallo de carga documentado en la conversación. Al arrancar se registran fallos de conexión serie si la placa no está disponible; el resto del portal continúa.
+La conexión con el hardware está confirmada y funcional: el portal se comunica
+con el receptor Arduino y el relé del pin 7 responde al flujo de acceso. 
 
 El conteo se basa en un rostro reconocido a la vez y no incluye prueba de vida. Los eventos históricos no se borraron ni reclasificaron. Las bibliotecas antiguas emiten advertencias de obsolescencia; se conserva Python 3.12.

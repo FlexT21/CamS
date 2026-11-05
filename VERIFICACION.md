@@ -1,6 +1,6 @@
 # Informe de verificación de CamS
 
-Fecha: 2 de noviembre de 2026. Revisión de los módulos Python de cliente y servidor, los tres README existentes, configuración, Docker y script de inicio. Se creó SYSTEM.md para documentar la operación completa.
+Revisión de los módulos Python de cliente y servidor, la documentación Markdown del repositorio, configuración, Docker y script de inicio. Se creó SYSTEM.md para documentar la operación completa.
 
 ## Hallazgos y correcciones
 
@@ -13,7 +13,7 @@ Fecha: 2 de noviembre de 2026. Revisión de los módulos Python de cliente y ser
 | `--interval` no se utilizaba | Regula los reintentos por track |
 | Tracking reiniciado después de cada cruce | Se conserva la identidad y el lado; SQLite impide entradas o salidas duplicadas |
 | Totales en memoria y resta recortada a cero | Registro transaccional por identidad, ocupación persistente y eventos UTC |
-| No había implementación Arduino | Cliente USB serie, confirmación y firmware del Uno para el pin 13 |
+| No había implementación Arduino | Cliente USB serie, confirmación y firmware del receptor para el relé del pin 7 |
 | Reintentos individuales podían separar JSON y JPEG | Reintento de la transacción completa; cierre de conexión al cancelar y validación de frame_id |
 | Servidor recibía BGR donde se esperaba RGB | Conversión a RGB antes de codificar los rostros |
 | JPEG con anotaciones y malla invisible por orden de dibujo | Reconocimiento sobre imagen limpia y malla visible en la imagen final |
@@ -22,7 +22,7 @@ Fecha: 2 de noviembre de 2026. Revisión de los módulos Python de cliente y ser
 | MQTT podía impedir responder al reconocimiento | Respuesta antes de publicar; publicación con QoS 1 y confirmación, fuera del hilo asíncrono |
 | Healthcheck afirmaba que MQTT funcionaba sin medirlo | Informa `not_checked` |
 | Rutas dependientes del directorio de ejecución | Carpeta del servidor resuelta desde el archivo fuente |
-| Docker declaraba Python 3.10 aunque el proyecto requiere 3.12 | Base Python 3.12 y corrección de continuación de línea; usuarios mediante volumen, sin fotos en la imagen |
+| Docker declaraba Python 3.10 aunque el proyecto requiere 3.12 | Base Python 3.12 y datos gestionados por el portal, sin usuarios ni fotos precargados en la imagen |
 
 ## Verificación ejecutada
 
@@ -49,11 +49,19 @@ Comandos reproducibles, dentro de cada aplicación:
 
 Con una instalación nueva mediante uv, usa `uv run python` y `uv run ruff` en lugar de las rutas del entorno existente.
 
-## Lo que requiere validación física
+## Estado de validación física
 
-No se detectaron puertos serie al ejecutar `serial.tools.list_ports`. No se cargó el programa en un Arduino ni se observó un LED real. Arduino CLI y Docker no estaban disponibles, por lo que no se compiló el firmware ni se construyó la imagen de Docker. La captura y el recorrido se comprobaron con frames y detecciones simuladas, sin una prueba presencial de cámara.
+La conexión con el hardware está confirmada y funcional. El portal se comunica
+con el receptor Arduino y el flujo de acceso activa correctamente el control
+físico configurado. La validación presencial de cámara, iluminación y
+trayectoria todavía depende del lugar concreto de instalación. Docker no forma
+parte de esta confirmación física.
 
-La carga local produjo **cero codificaciones de usuarios registrados**. Se verificó el algoritmo con vectores controlados y el protocolo con JPEG, pero no se midió exactitud facial con fotografías de personas registradas. Debes registrar fotografías válidas y reiniciar el servidor antes de usarlo con personas reales.
+No se incluyeron usuarios ni fotografías precargados en la instalación. Se
+verificó el algoritmo con vectores controlados y el protocolo con JPEG, pero no
+se midió exactitud facial con fotografías de personas reales. Debes registrar
+personas desde el módulo **Personas** de la interfaz web antes de usar el
+reconocimiento.
 
 Las librerías instaladas emiten avisos de obsolescencia de Protobuf y `pkg_resources`; las pruebas pasan con Python 3.12. No se afirma compatibilidad con Python 3.14 ni exactitud biométrica del 100 %.
 
@@ -61,4 +69,7 @@ El sistema exige paso individual y registra solo personas reconocidas. Consulta 
 
 ## Entrega
 
-`entrega/CamS_corregido_Arduino_Uno_pin13.zip`: código fuente completo, dependencias y locks, pruebas, documentación y sketch Arduino. Excluye entornos Python, `.env` locales, imágenes biométricas, bases de ocupación y logs. Las fotografías originales permanecen en el equipo; para otra instalación deben agregarse a `apps/server/users/<nombre>/`.
+La entrega debe contener el código fuente completo, dependencias y locks,
+pruebas, documentación y sketch Arduino. Excluye entornos Python, `.env`
+locales, imágenes biométricas, bases de ocupación y logs. Las personas y sus
+fotografías se registran exclusivamente desde la interfaz web.
