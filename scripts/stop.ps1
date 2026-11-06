@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$DiscardStaleState
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -78,9 +80,26 @@ try {
     $processes = @($state.Processes)
     # Validate all live entries before stopping anything. Mismatches must never
     # discard the only record of processes that still require investigation.
+    $mismatches = @()
+    $ownedLive = @()
     foreach ($entry in $processes) {
         $live = Get-CimInstance Win32_Process -Filter "ProcessId = $($entry.Id)"
-        if ($live -and !(Same-Process $live $entry)) { throw "Ownership mismatch for live PID $($entry.Id) ($($entry.Name)); runtime state retained." }
+        if ($live) {
+            if (Same-Process $live $entry) {
+                $ownedLive += $entry
+            } else {
+                $mismatches += $entry
+            }
+        }
+    }
+    if ($mismatches.Count -gt 0) {
+        if ($DiscardStaleState -and $ownedLive.Count -eq 0 -and $null -eq $state.Container) {
+            Remove-Item -LiteralPath $statePath
+            Write-Host 'Stale runtime state discarded. No live managed process was stopped.'
+            return
+        }
+        $firstMismatch = $mismatches[0]
+        throw "Ownership mismatch for live PID $($firstMismatch.Id) ($($firstMismatch.Name)); runtime state retained. If all managed processes are already gone, run scripts/stop.ps1 -DiscardStaleState."
     }
     for ($index = $processes.Count - 1; $index -ge 0; $index--) { Stop-OwnedTree $processes[$index] }
     if ($state.Container) {

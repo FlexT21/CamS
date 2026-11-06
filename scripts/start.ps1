@@ -81,20 +81,33 @@ function Save-Descendants {
     Save-State
 }
 
+function Test-OwnedListener {
+    param([int]$ListenerId, [int]$OwnerId)
+    $currentId = $ListenerId
+    for ($depth = 0; $depth -lt 64 -and $currentId -gt 0; $depth++) {
+        if ($currentId -eq $OwnerId) { return $true }
+        $current = Get-CimInstance Win32_Process -Filter "ProcessId = $currentId"
+        if (!$current -or $current.ParentProcessId -eq $current.ProcessId) { return $false }
+        $currentId = [int]$current.ParentProcessId
+    }
+    return $false
+}
+
 function Wait-OwnedPort {
     param([int]$Port, [int]$OwnerId, [string]$Name)
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if (!(Get-Process -Id $OwnerId -ErrorAction SilentlyContinue)) { throw "$Name exited. Check .runtime logs." }
         if (Test-Port $Port) {
-            $all = @(Get-CimInstance Win32_Process)
-            $ids = @($OwnerId)
-            do {
-                $more = @($all | Where-Object { $_.ParentProcessId -in $ids -and $_.ProcessId -notin $ids } | ForEach-Object { [int]$_.ProcessId })
-                $ids += $more
-            } while ($more.Count -gt 0)
             $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
-            if (@($listeners | Where-Object { $_.OwningProcess -in $ids }).Count -gt 0) { return }
-            throw "Port $Port belongs to another process; $Name was not confirmed running."
+            foreach ($listener in $listeners) {
+                if (Test-OwnedListener ([int]$listener.OwningProcess) $OwnerId) { return }
+            }
+            if ($listeners.Count -eq 0) {
+                Start-Sleep -Milliseconds 100
+                continue
+            }
+            $owners = (@($listeners | ForEach-Object { $_.OwningProcess }) -join ', ')
+            throw "Port $Port belongs to another process; $Name was not confirmed running (owner(s): $owners, expected root PID: $OwnerId)."
         }
         Start-Sleep -Milliseconds 500
     }

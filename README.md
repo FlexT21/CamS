@@ -23,6 +23,14 @@ El backend web escucha en `http://127.0.0.1:8765`. Para detener los procesos:
 .\scripts\stop.ps1
 ```
 
+Si una sesión anterior terminó de forma abrupta y el PID registrado fue
+reutilizado por Windows, descarta solo el estado obsoleto (sin detener ese
+proceso):
+
+```powershell
+.\scripts\stop.ps1 -DiscardStaleState
+```
+
 La operación no requiere ningún cliente de escritorio ni terminal: las cuentas,
 personas, monitor, eventos y estado se gestionan desde la interfaz web. Los
 comandos mostrados son únicamente para iniciar, detener o validar el servicio.
