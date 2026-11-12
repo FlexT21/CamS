@@ -164,7 +164,7 @@ class Monitor:
                 )
                 if user:
                     track.user = user
-                    session.pending_access.append(user["name"])
+                    session.pending_access.append(user)
             center = (x1 + x2) / 2
             line_x = width * config.line_fraction
             direction = track.crossing(center, line_x, dead_zone)

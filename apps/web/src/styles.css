@@ -1490,6 +1490,18 @@ input:disabled {
   color: #8e99a8;
   position: relative;
 }
+.photo-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+.photo-strip img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
 .photo-icon {
   display: flex;
   width: 38px;

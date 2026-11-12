@@ -90,15 +90,17 @@ export default function Camera({
   expanded,
   onToggleSize,
   externalNotice,
+  enrollmentReset,
 }: {
   mode: "enroll" | "monitor";
   api: Api;
-  onCapture?: (image: string) => void;
+  onCapture?: (images: string[]) => void;
   onEvents: () => void;
   onExpired: () => void;
   expanded: boolean;
   onToggleSize: () => void;
   externalNotice?: CameraNotice | null;
+  enrollmentReset?: number;
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -111,6 +113,7 @@ export default function Camera({
   const [notice, setNotice] = useState("Activa la cámara para comenzar.");
   const [error, setError] = useState("");
   const [frame, setFrame] = useState<Frame | null>(null);
+  const [enrollmentImages, setEnrollmentImages] = useState<string[]>([]);
   const callbacks = useRef({ onEvents, onExpired });
   callbacks.current = { onEvents, onExpired };
 
@@ -130,6 +133,7 @@ export default function Camera({
     setOpening(false);
     setRunning(false);
     setFrame(null);
+    setEnrollmentImages([]);
     setNotice("Cámara detenida. Puedes activarla cuando lo necesites.");
   }
 
@@ -140,6 +144,9 @@ export default function Camera({
     },
     [],
   );
+  useEffect(() => {
+    setEnrollmentImages([]);
+  }, [enrollmentReset]);
 
   async function start() {
     if (stream.current || opening) return;
@@ -211,10 +218,14 @@ export default function Camera({
 
   function capture() {
     try {
-      onCapture?.(snapshot());
+      const images = [...enrollmentImages, snapshot()].slice(-3);
+      setEnrollmentImages(images);
+      onCapture?.(images);
       setError("");
       setNotice(
-        "Fotografía capturada. Completa los datos para guardar el registro.",
+        images.length < 3
+          ? `Fotografía ${images.length} de 3 capturada. Cambia ligeramente el ángulo y captura la siguiente.`
+          : "Las 3 fotografías están listas. Completa los datos para guardar el registro.",
       );
     } catch (err) {
       setError(errorMessage(err));
@@ -438,9 +449,13 @@ export default function Camera({
         ) : (
           <>
             {mode === "enroll" ? (
-              <button className="button primary" onClick={capture}>
+              <button
+                className="button primary"
+                onClick={capture}
+                disabled={enrollmentImages.length === 3}
+              >
                 <CameraIcon size={18} />
-                Capturar fotografía
+                Capturar fotografía ({enrollmentImages.length}/3)
               </button>
             ) : running ? (
               <button

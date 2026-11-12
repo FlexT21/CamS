@@ -630,7 +630,8 @@ function Dashboard({
   const [revision, setRevision] = useState(0);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [filter, setFilter] = useState("");
-  const [enrollmentImage, setEnrollmentImage] = useState("");
+  const [enrollmentImages, setEnrollmentImages] = useState<string[]>([]);
+  const [enrollmentReset, setEnrollmentReset] = useState(0);
   const [panelExpanded, setPanelExpanded] = useState(false);
   const [enrollmentNotice, setEnrollmentNotice] = useState<CameraNotice | null>(
     null,
@@ -951,11 +952,12 @@ function Dashboard({
               api={api}
               expanded={panelExpanded}
               onToggleSize={() => setPanelExpanded((value) => !value)}
+              enrollmentReset={enrollmentReset}
               externalNotice={page === "persons" ? enrollmentNotice : null}
-              onCapture={(image) => {
-                setEnrollmentImage(image);
+              onCapture={(images) => {
+                setEnrollmentImages(images);
                 setEnrollmentNotice({
-                  text: "Fotografía capturada. Completa los datos para guardar el registro.",
+                  text: `${images.length} de 3 fotografías capturadas. Completa las tres para guardar el registro.`,
                 });
               }}
               onEvents={refresh}
@@ -964,9 +966,10 @@ function Dashboard({
             {page === "persons" ? (
               <Enrollment
                 api={api}
-                image={enrollmentImage}
+                images={enrollmentImages}
                 onClear={() => {
-                  setEnrollmentImage("");
+                  setEnrollmentImages([]);
+                  setEnrollmentReset((value) => value + 1);
                   setEnrollmentNotice(null);
                 }}
                 onSaved={refresh}
@@ -1293,13 +1296,13 @@ function ServiceIndicators({
 
 function Enrollment({
   api,
-  image,
+  images,
   onClear,
   onSaved,
   onNotice,
 }: {
   api: Api;
-  image: string;
+  images: string[];
   onClear: () => void;
   onSaved: () => void;
   onNotice: (notice: CameraNotice) => void;
@@ -1311,8 +1314,8 @@ function Enrollment({
   const saving = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
-    if (image) setSuccess("");
-  }, [image]);
+    if (images.length) setSuccess("");
+  }, [images]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving.current) {
@@ -1323,10 +1326,10 @@ function Enrollment({
     }
     setError("");
     setSuccess("");
-    if (!image) {
-      setError("Captura una fotografía antes de guardar el registro.");
+    if (images.length !== 3) {
+      setError("Captura exactamente 3 fotografías antes de guardar el registro.");
       onNotice({
-        text: "Captura una fotografía antes de guardar el registro.",
+        text: "Captura exactamente 3 fotografías antes de guardar el registro.",
         error: true,
       });
       return;
@@ -1350,7 +1353,7 @@ function Enrollment({
     try {
       await api("/persons", {
         method: "POST",
-        body: { name, external_id, image },
+        body: { name, external_id, images },
         signal: controller.current.signal,
       });
       form.reset();
@@ -1384,13 +1387,17 @@ function Enrollment({
         </span>
       </div>
       <form onSubmit={submit}>
-        <div className={`photo-preview ${image ? "captured" : ""}`}>
-          {image ? (
+        <div className={`photo-preview ${images.length ? "captured" : ""}`}>
+          {images.length ? (
             <>
-              <img src={image} alt="Fotografía capturada para el registro" />
+              <div className="photo-strip">
+                {images.map((photo, index) => (
+                  <img key={photo} src={photo} alt={`Fotografía ${index + 1} de 3`} />
+                ))}
+              </div>
               <span>
                 <Check size={14} />
-                Fotografía lista
+                {images.length} de 3 fotografías listas
               </span>
               <button
                 type="button"
@@ -1408,7 +1415,7 @@ function Enrollment({
               </span>
               <div>
                 <strong>Tu fotografía aparecerá aquí</strong>
-                <small>Activa la cámara y captura el rostro.</small>
+                <small>Activa la cámara y captura 3 ángulos del rostro.</small>
               </div>
             </>
           )}
@@ -1450,7 +1457,7 @@ function Enrollment({
         <button
           type="submit"
           className="button primary full"
-          disabled={busy || !image}
+          disabled={busy || images.length !== 3}
         >
           {busy ? (
             <LoaderCircle className="spin" size={17} />

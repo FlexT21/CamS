@@ -3,6 +3,7 @@ const messages = {
   'Face is already enrolled': 'Este rostro ya está registrado en tu cuenta.',
   'External ID is already enrolled': 'Este identificador ya está registrado en tu cuenta.',
   'Enrollment requires exactly one face': 'La fotografía debe contener exactamente un rostro visible.',
+  'Each enrollment photo requires exactly one face': 'Cada una de las 3 fotografías debe contener exactamente un rostro visible.',
   'Invalid email or password': 'El correo o la contraseña son incorrectos.',
   'Account already exists': 'Ya existe una cuenta con ese correo.',
   'Invalid or expired session': 'La sesión venció. Inicia sesión nuevamente.',

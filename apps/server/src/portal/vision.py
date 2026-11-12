@@ -39,16 +39,38 @@ def match(embedding, persons, threshold):
     from src.schemas import FaceEncoding
     from src.services.users import recognize_user
 
-    compatible = [p for p in persons if len(p["encoding"]) == len(embedding)]
+    def samples(person):
+        value = person["encoding"]
+        return [value] if value and isinstance(value[0], (int, float)) else value
+
+    compatible = [
+        p
+        for p in persons
+        if any(len(sample) == len(embedding) for sample in samples(p))
+    ]
     result = recognize_user(
-        [FaceEncoding(user=p["id"], encodings=[p["encoding"]]) for p in compatible],
+        [
+            FaceEncoding(
+                user=p["id"],
+                encodings=[
+                    sample
+                    for sample in samples(p)
+                    if len(sample) == len(embedding)
+                ],
+            )
+            for p in compatible
+        ],
         embedding,
         threshold,
     )
     if not result.success:
         return None
     person = next(p for p in compatible if p["id"] == result.user)
-    return {"id": person["id"], "name": person["name"]}
+    return {
+        "id": person["id"],
+        "name": person["name"],
+        "card_slot": person.get("card_slot"),
+    }
 
 
 def decode_image(encoded, config):

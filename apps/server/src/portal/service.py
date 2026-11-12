@@ -1,3 +1,4 @@
+import base64
 import json
 import secrets
 import threading
@@ -102,12 +103,16 @@ class Portal:
             )
         return dict(row)
 
-    def enroll(self, owner, name, external_id, image):
-        data, frame = decode_image(image, self.config)
-        encodings = self.faces.embeddings(frame)
-        if len(encodings) != 1:
-            raise HTTPException(422, "Enrollment requires exactly one face")
-        encoding = encodings[0]
+    def enroll(self, owner, name, external_id, images):
+        if isinstance(images, str):
+            images = [images]
+        decoded = [decode_image(image, self.config) for image in images]
+        encodings = []
+        for _, frame in decoded:
+            values = self.faces.embeddings(frame)
+            if len(values) != 1:
+                raise HTTPException(422, "Each enrollment photo requires exactly one face")
+            encodings.append(values[0])
         person = {
             "id": str(uuid.uuid4()),
             "name": name,
@@ -122,22 +127,40 @@ class Portal:
                     raise HTTPException(409, "Enrollment limit reached")
                 if any(
                     p["encoding_engine"] == "face_recognition_dlib"
-                    and distance(encoding, decode_encoding(p["encoding"]))
-                    <= self.config.face_threshold
+                    and any(
+                        distance(encoding, known) <= self.config.face_threshold
+                        for encoding in encodings
+                        for known in (
+                            [decode_encoding(p["encoding"])]
+                            if decode_encoding(p["encoding"])
+                            and isinstance(decode_encoding(p["encoding"])[0], (int, float))
+                            else decode_encoding(p["encoding"])
+                        )
+                    )
                     for p in persons
                 ):
                     raise HTTPException(409, "Face is already enrolled")
                 self.db.execute(
                     conn,
-                    """INSERT INTO cams_persons(id,owner_id,name,external_id,image,encoding,encoding_engine,created_at)
-                    VALUES (?,?,?,?,?,?,'face_recognition_dlib',?)""",
+                    """INSERT INTO cams_persons
+                    (id,owner_id,name,external_id,image,images,encoding,encoding_engine,created_at)
+                    VALUES (?,?,?,?,?,?,?,'face_recognition_dlib',?)""",
                     (
                         person["id"],
                         owner,
                         name,
                         external_id,
-                        data,
-                        json.dumps(encoding, allow_nan=False),
+                        decoded[0][0],
+                        json.dumps(
+                            [
+                                base64.b64encode(image).decode("ascii")
+                                for image, _ in decoded
+                            ]
+                        ),
+                        json.dumps(
+                            encodings[0] if len(encodings) == 1 else encodings,
+                            allow_nan=False,
+                        ),
                         person["created_at"],
                     ),
                 )

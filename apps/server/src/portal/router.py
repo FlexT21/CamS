@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
 from .security import token_hash
@@ -116,7 +116,8 @@ class Register(Login):
 class Person(Input):
     name: str = Field(min_length=1, max_length=120)
     external_id: str = Field(min_length=1, max_length=120)
-    image: str = Field(min_length=1, max_length=2_700_000)
+    images: list[str] | None = Field(default=None, min_length=3, max_length=3)
+    image: str | None = Field(default=None, min_length=1, max_length=2_700_000)
 
     @field_validator("name", "external_id")
     @classmethod
@@ -124,6 +125,14 @@ class Person(Input):
         if not value.strip():
             raise ValueError("Value cannot be blank")
         return value.strip()
+
+    @model_validator(mode="after")
+    def require_photos(self):
+        if self.images is None and self.image is None:
+            raise ValueError("Three enrollment photos are required")
+        if self.images is not None and len(self.images) != 3:
+            raise ValueError("Exactly three enrollment photos are required")
+        return self
 
 
 class Frame(Input):
@@ -205,7 +214,9 @@ def persons(
     with portal.db.connect() as conn:
         rows = portal.db.execute(
             conn,
-            """SELECT id,name,external_id,created_at,image FROM cams_persons
+            """SELECT id,name,external_id,created_at,image,
+            ROW_NUMBER() OVER (ORDER BY created_at,id) AS card_slot
+            FROM cams_persons
             WHERE owner_id=? ORDER BY created_at,id LIMIT ? OFFSET ?""",
             (user["id"], limit, offset),
         ).fetchall()
@@ -216,7 +227,10 @@ def persons(
         ).fetchone()["n"]
     result = []
     for row in rows:
-        person = {key: row[key] for key in ("id", "name", "external_id", "created_at")}
+        person = {
+            key: row[key]
+            for key in ("id", "name", "external_id", "created_at", "card_slot")
+        }
         person["image"] = thumbnail(row["image"])
         result.append(person)
     return {"persons": result, "total": total, "limit": limit, "offset": offset}
@@ -226,9 +240,10 @@ def persons(
 def enroll(payload: Person, user=Depends(authenticated)):
     portal = get_portal()
     portal.limiter.check(("enroll", user["id"]), 10, 60)
-    person = portal.enroll(user["id"], payload.name, payload.external_id, payload.image)
+    images = payload.images or [payload.image]
+    person = portal.enroll(user["id"], payload.name, payload.external_id, images)
     # Same image representation as GET /persons; originals stay in database.
-    data, _ = decode_image(payload.image, portal.config)
+    data, _ = decode_image(images[0], portal.config)
     person["image"] = thumbnail(data)
     return person
 
@@ -304,8 +319,8 @@ def frame(payload: Frame, user=Depends(authenticated)):
         tracks = portal.monitor.process(
             session, payload.session_id, image, portal.db.encodings(user["id"])
         )
-        for person_name in session.pending_access:
-            portal.bridge.publish_access(person_name)
+        for person in session.pending_access:
+            portal.bridge.publish_access(person)
         session.pending_access.clear()
         new_events = portal.db.save_events(user["id"], session.pending)
         session.pending.clear()

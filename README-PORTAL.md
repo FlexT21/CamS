@@ -19,7 +19,7 @@ Se reintenta cada segundo mientras no haya identidad; una coincidencia confirma 
 
 En la imagen mostrada: izquierda → derecha es entrada (+1), derecha → izquierda es salida (−1). Se usa el centro del rostro, no una caja de cuerpo YOLO. La línea está al 25 % del ancho y tiene una banda neutra de ±max(10 píxeles, 1.5 % del ancho). Los eventos guardados aparecen en los contadores e historial web; la presencia es una estimación basada en entradas menos salidas, sin valores negativos.
 
-Registro: captura el rostro en el módulo de personas; se guarda el JPEG y el embedding dlib con la marca `encoding_engine=face_recognition_dlib`. Las imágenes importadas del portal anterior se recodifican localmente con el motor vigente para evitar mezclar descriptores de otro algoritmo. El alta web guarda los rostros en la base de datos de la cuenta y no comparte
+Registro: captura tres fotografías del rostro en el módulo de personas; se guardan las tres imágenes y sus embeddings dlib con la marca `encoding_engine=face_recognition_dlib`. El reconocimiento compara cada captura contra los tres embeddings registrados. Las imágenes importadas del portal anterior se recodifican localmente con el motor vigente para evitar mezclar descriptores de otro algoritmo. El alta web guarda los rostros en la base de datos de la cuenta y no comparte
 automáticamente rostros entre cuentas.
 
 ## Base de datos y Supabase
@@ -34,7 +34,7 @@ Este comando crea/verifica `cams_users`, `cams_sessions`, `cams_persons`, `cams_
 
 ## Control de acceso
 
-El portal controla el receptor `COM3` a 9600 baudios. Carga
+El portal controla el receptor `COM3` a 9600 baudios. Cada persona recibe un índice de tarjeta según su orden de registro: la primera persona solo puede abrir con `Usuario1`, la segunda con `Usuario2`. El portal envía `ACCEPTED:<índice>` al confirmar una identidad de entrada. Carga
 `micro/CamSAccessReceiver/CamSAccessReceiver.ino` en el Arduino. El portal
 envía `ACCEPTED` al confirmar una identidad de entrada; después la tarjeta RFID
 autorizada habilita el relé.

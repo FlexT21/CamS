@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS cams_sessions_owner ON cams_sessions(owner_id);
 CREATE TABLE IF NOT EXISTS cams_persons (
  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES cams_users(id) ON DELETE CASCADE,
  name TEXT NOT NULL, external_id TEXT NOT NULL, image BLOB NOT NULL,
- encoding TEXT NOT NULL, encoding_engine TEXT NOT NULL DEFAULT 'unknown', created_at REAL NOT NULL, UNIQUE(owner_id,external_id));
+ images TEXT NOT NULL DEFAULT '[]', encoding TEXT NOT NULL, encoding_engine TEXT NOT NULL DEFAULT 'unknown', created_at REAL NOT NULL, UNIQUE(owner_id,external_id));
 CREATE TABLE IF NOT EXISTS cams_events (
  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES cams_users(id) ON DELETE CASCADE,
  session_id TEXT NOT NULL, track_id INTEGER NOT NULL,
@@ -98,6 +98,10 @@ class Database:
                     conn.execute(
                         "ALTER TABLE cams_persons ADD COLUMN encoding_engine TEXT NOT NULL DEFAULT 'unknown'"
                     )
+                if "images" not in columns:
+                    conn.execute(
+                        "ALTER TABLE cams_persons ADD COLUMN images TEXT NOT NULL DEFAULT '[]'"
+                    )
 
     def is_integrity_error(self, exc):
         if isinstance(exc, sqlite3.IntegrityError):
@@ -115,8 +119,8 @@ class Database:
             )
 
     def persons(self, owner, conn=None, private=False):
-        columns = "id,name,external_id,created_at" + (
-            ",encoding,encoding_engine" if private else ""
+        columns = "id,name,external_id,created_at,ROW_NUMBER() OVER (ORDER BY created_at,id) AS card_slot" + (
+            ",encoding,encoding_engine,images" if private else ""
         )
         if conn is None:
             with self.connect() as connection:
@@ -168,11 +172,15 @@ class Database:
         return saved
 
     def encodings(self, owner):
-        return [
-            dict(person, encoding=decode_encoding(person["encoding"]))
-            for person in self.persons(owner, private=True)
-            if person["encoding_engine"] == "face_recognition_dlib"
-        ]
+        result = []
+        for person in self.persons(owner, private=True):
+            if person["encoding_engine"] != "face_recognition_dlib":
+                continue
+            encoding = decode_encoding(person["encoding"])
+            if encoding and isinstance(encoding[0], (int, float)):
+                encoding = [encoding]
+            result.append(dict(person, encoding=encoding))
+        return result
 
 
 def decode_encoding(value):

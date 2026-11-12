@@ -11,11 +11,12 @@ CREATE TABLE IF NOT EXISTS cams_sessions (
 CREATE INDEX IF NOT EXISTS cams_sessions_owner ON cams_sessions(owner_id);
 CREATE TABLE IF NOT EXISTS cams_persons (
     id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES cams_users(id) ON DELETE CASCADE,
-    name TEXT NOT NULL, external_id TEXT NOT NULL, image BYTEA NOT NULL,
+    name TEXT NOT NULL, external_id TEXT NOT NULL, image BYTEA NOT NULL, images JSONB NOT NULL DEFAULT '[]'::jsonb,
     encoding JSONB NOT NULL, encoding_engine TEXT NOT NULL DEFAULT 'unknown', created_at DOUBLE PRECISION NOT NULL,
     UNIQUE(owner_id, external_id)
 );
 ALTER TABLE cams_persons ADD COLUMN IF NOT EXISTS encoding_engine TEXT NOT NULL DEFAULT 'unknown';
+ALTER TABLE cams_persons ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
 CREATE TABLE IF NOT EXISTS cams_events (
     id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES cams_users(id) ON DELETE CASCADE,
     session_id TEXT NOT NULL, track_id INTEGER NOT NULL, direction TEXT NOT NULL CHECK(direction IN ('entrada','salida')),

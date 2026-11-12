@@ -66,8 +66,8 @@ class EventBridge:
                         "Portal hardware queue full; committed event not delivered"
                     )
 
-    def publish_access(self, person_name):
-        """Notify the Arduino that the camera accepted the next entry."""
+    def publish_access(self, person):
+        """Notify the Arduino which registered card must authorize the entry."""
         if not self.config.serial_port:
             return
         with self.lock:
@@ -78,7 +78,8 @@ class EventBridge:
                 self.queue.put_nowait(
                     {
                         "direction": "entrada",
-                        "id": f"camera-access:{person_name}:{time.monotonic_ns()}",
+                        "id": f"camera-access:{person['id']}:{time.monotonic_ns()}",
+                        "card_slot": person.get("card_slot"),
                     }
                 )
             except queue.Full:
@@ -192,7 +193,12 @@ class EventBridge:
             if event["direction"] != "entrada":
                 self.serial_state = "connected"
                 return
-            payload = b"ACCEPTED\n"
+            card_slot = event.get("card_slot")
+            payload = (
+                f"ACCEPTED:{card_slot}\n".encode()
+                if isinstance(card_slot, int) and card_slot > 0
+                else b"ACCEPTED\n"
+            )
             self.serial.reset_input_buffer()
             if self.serial.write(payload) != len(payload):
                 raise OSError("Incomplete serial write")

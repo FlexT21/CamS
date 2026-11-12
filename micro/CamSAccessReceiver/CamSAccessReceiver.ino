@@ -19,6 +19,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 byte LecturaUID[7];
 bool camaraVerificada = false;
+byte tarjetaEsperada = 0;
 unsigned long momentoVerificacionCamara = 0;
 
 // Tarjetas autorizadas
@@ -59,13 +60,15 @@ void recibirSenalSerial() {
   String signal = Serial.readStringUntil('\n');
   signal.trim();
 
-  if (signal == "ACCEPTED") {
+  if (signal == "ACCEPTED" || signal.startsWith("ACCEPTED:")) {
     camaraVerificada = true;
+    tarjetaEsperada = signal == "ACCEPTED" ? 0 : signal.substring(9).toInt();
     momentoVerificacionCamara = millis();
     digitalWrite(LEDR, LOW);
     Serial.println("Camara verificada; esperando tarjeta RFID...");
   } else if (signal == "DENIED") {
     camaraVerificada = false;
+    tarjetaEsperada = 0;
     Serial.println("Camara no verificada; esperando una nueva persona...");
   }
 }
@@ -76,6 +79,7 @@ void verificarExpiracionCamara() {
     millis() - momentoVerificacionCamara >= CONFIRMACION_CAMARA_MS
   ) {
     camaraVerificada = false;
+    tarjetaEsperada = 0;
     Serial.println("Verificacion de camara expirada");
   }
 }
@@ -103,8 +107,10 @@ void revisarTarjeta() {
   Serial.println();
 
   bool tarjetaAutorizada =
-    comparaUID(LecturaUID, mfrc522.uid.size, Usuario1, 4) ||
-    comparaUID(LecturaUID, mfrc522.uid.size, Usuario2, 4);
+    (tarjetaEsperada == 1 &&
+      comparaUID(LecturaUID, mfrc522.uid.size, Usuario1, 4)) ||
+    (tarjetaEsperada == 2 &&
+      comparaUID(LecturaUID, mfrc522.uid.size, Usuario2, 4));
 
   if (!camaraVerificada) {
     accesoDenegado("RFID sin camara verificada");
@@ -121,6 +127,7 @@ void revisarTarjeta() {
 
 void accesoPermitido(const char* origen) {
   camaraVerificada = false;
+  tarjetaEsperada = 0;
 
   Serial.print("ACCESO PERMITIDO (");
   Serial.print(origen);
@@ -140,6 +147,7 @@ void accesoPermitido(const char* origen) {
 
 void accesoDenegado(const char* origen) {
   camaraVerificada = false;
+  tarjetaEsperada = 0;
 
   Serial.print("ACCESO DENEGADO (");
   Serial.print(origen);
