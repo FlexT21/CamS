@@ -1,3 +1,4 @@
+import math
 import threading
 import time
 import uuid
@@ -23,6 +24,46 @@ class Track:
     identity_count: int = 0
     recognition_at: float = -1
     pending_crossings: list = field(default_factory=list)
+    liveness_samples: list = field(default_factory=list)
+    liveness_open_seen: bool = False
+    live: bool = False
+
+    def observe_liveness(self, face, config):
+        """Require temporal facial motion or a blink before recognition."""
+        if self.live or not face:
+            return self.live
+        points = face.get("mesh_points") or []
+        if len(points) <= 386:
+            return False
+        nose = points[1]
+        if not isinstance(nose, dict):
+            return False
+        try:
+            nose_position = (float(nose["x"]), float(nose["y"]))
+            face_width = max(float(face["width"]), 1.0)
+            left_eye = abs(float(points[159]["y"]) - float(points[145]["y"]))
+            right_eye = abs(float(points[386]["y"]) - float(points[374]["y"]))
+            left_width = abs(float(points[33]["x"]) - float(points[133]["x"]))
+            right_width = abs(float(points[362]["x"]) - float(points[263]["x"]))
+        except (KeyError, TypeError, ValueError):
+            return False
+        eye_ratio = (
+            left_eye / max(left_width, 1.0) + right_eye / max(right_width, 1.0)
+        ) / 2
+        if eye_ratio >= config.liveness_open_eye_ratio:
+            self.liveness_open_seen = True
+        if self.liveness_open_seen and eye_ratio <= config.liveness_closed_eye_ratio:
+            self.live = True
+        if self.liveness_samples:
+            previous = self.liveness_samples[-1]
+            displacement = math.hypot(
+                nose_position[0] - previous[0], nose_position[1] - previous[1]
+            )
+            if displacement >= face_width * config.liveness_motion_fraction:
+                self.live = True
+        self.liveness_samples.append(nose_position)
+        del self.liveness_samples[:-8]
+        return self.live
 
     def crossing(self, center_x, line, dead_zone, confirmations=None):
         side = (
@@ -114,18 +155,13 @@ class Monitor:
             session.tracker = self.tracker_factory(config)
         session.dimensions = (width, height)
         detections = session.tracker.detect(frame)
-        # A single full-frame YuNet pass gives the visual overlay its actual
-        # facial keypoints. Recognition itself remains scoped to each person
-        # box below, as before.
+        # A single full-frame FaceMesh pass supplies both the visual overlay
+        # and the temporal liveness signal used before recognition.
         line_x = width * config.line_fraction
         dead_zone = max(10, width * config.dead_zone_fraction)
-        mesh_margin = max(dead_zone * 3, 80)
-        near_line = any(
-            abs((x1 + x2) / 2 - line_x) <= mesh_margin for _, x1, _, x2, _ in detections
-        )
         face_landmarks = (
             self.faces.landmarks(frame)
-            if near_line and hasattr(self.faces, "landmarks")
+            if hasattr(self.faces, "landmarks") and detections
             else []
         )
         session.tracks = {
@@ -150,10 +186,18 @@ class Monitor:
                 continue
             track = session.tracks.setdefault(track_id, Track())
             track.seen = now
+            face = self._face_in_person_box(face_landmarks, x1, y1, x2, y2)
+            if hasattr(self.faces, "landmarks"):
+                track.observe_liveness(face, config)
+            else:
+                # Lightweight test doubles without a mesh retain the old
+                # recognition contract; FaceEngine always provides landmarks.
+                track.live = True
             if (
                 track.user is None
                 and now - track.recognition_at >= config.recognition_interval
                 and persons
+                and track.live
             ):
                 track.recognition_at = now
                 embeddings = self.faces.embeddings(frame)
@@ -185,7 +229,6 @@ class Monitor:
                         }
                     )
                 track.pending_crossings.clear()
-            face = self._face_in_person_box(face_landmarks, x1, y1, x2, y2)
             output.append(
                 {
                     "id": track_id,

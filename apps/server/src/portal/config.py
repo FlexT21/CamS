@@ -68,6 +68,11 @@ class Config:
     recognition_interval: float = field(
         default_factory=lambda: float(os.getenv("CAMS_RECOGNITION_INTERVAL", "1.0"))
     )
+    liveness_motion_fraction: float = field(
+        default_factory=lambda: float(os.getenv("CAMS_LIVENESS_MOTION", "0.12"))
+    )
+    liveness_closed_eye_ratio: float = 0.20
+    liveness_open_eye_ratio: float = 0.25
     # Coordinates match the mirrored browser video. Moving left to right
     # is entry; the reverse is exit. A narrow neutral band filters jitter.
     line_fraction: float = field(
@@ -117,6 +122,8 @@ class Config:
             )
         if self.recognition_interval <= 0:
             raise ValueError("CAMS_RECOGNITION_INTERVAL must be positive")
+        if self.liveness_motion_fraction <= 0:
+            raise ValueError("CAMS_LIVENESS_MOTION must be positive")
         _validate_fraction(
             self.line_fraction, 1, "Invalid line fraction configuration"
         )

@@ -12,7 +12,7 @@ Los archivos de detección y reconocimiento del cliente y servidor originales se
 
 ## Validación ejecutada
 
-- 42 pruebas del portal aprobadas, incluidas orientación del centroide en video espejado, permanencia de identidad, entrada/salida, espera de reconocimiento antes de contar, idempotencia, autenticación, aislamiento por cuenta y entrega serie con confirmación.
+- 44 pruebas del portal aprobadas, incluidas prueba de vida estática y dinámica, orientación del centroide en video espejado, permanencia de identidad, entrada/salida, espera de reconocimiento antes de contar, idempotencia, autenticación, aislamiento por cuenta y entrega serie con confirmación.
 - 6 pruebas de React aprobadas y compilación TypeScript/Vite exitosa.
 - 7 pruebas del cliente anterior y 3 del servidor anterior aprobadas.
 - Inferencia real en un proceso de prueba: carga dlib, detección MediaPipe, malla FaceMesh, registro y coincidencia facial con una imagen sintética local; base temporal aislada, sin escrituras de prueba en producción.
@@ -35,4 +35,4 @@ Los datos copiados permanecen locales. Cambiar la conexión no transfiere autom�
 La conexión con el hardware está confirmada y funcional: el portal se comunica
 con el receptor Arduino y el relé del pin 7 responde al flujo de acceso. 
 
-El conteo se basa en un rostro reconocido a la vez y no incluye prueba de vida. Los eventos históricos no se borraron ni reclasificaron. Las bibliotecas antiguas emiten advertencias de obsolescencia; se conserva Python 3.12.
+El conteo se basa en un rostro reconocido a la vez. Antes de reconocerlo, el servidor exige una prueba de vida temporal: movimiento de la cabeza entre cuadros o un parpadeo detectado por FaceMesh. Una imagen estática no puede producir reconocimiento ni eventos. Los eventos históricos no se borraron ni reclasificaron. Las bibliotecas antiguas emiten advertencias de obsolescencia; se conserva Python 3.12.

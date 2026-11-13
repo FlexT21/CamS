@@ -364,6 +364,53 @@ class PortalTests(unittest.TestCase):
                 1,
             )
 
+    def test_static_face_does_not_pass_liveness(self):
+        config = replace(self.config, liveness_motion_fraction=0.1)
+        track = Track()
+        point = lambda x, y: {"x": x, "y": y}
+        face = {
+            "x": 20,
+            "y": 10,
+            "width": 50,
+            "height": 70,
+            "mesh_points": [point(0, 0) for _ in range(468)],
+        }
+        face["mesh_points"][1] = point(45, 40)
+        face["mesh_points"][33] = point(30, 35)
+        face["mesh_points"][133] = point(40, 35)
+        face["mesh_points"][362] = point(50, 35)
+        face["mesh_points"][263] = point(60, 35)
+        face["mesh_points"][159] = point(35, 30)
+        face["mesh_points"][145] = point(35, 34)
+        face["mesh_points"][386] = point(55, 30)
+        face["mesh_points"][374] = point(55, 34)
+        self.assertFalse(track.observe_liveness(face, config))
+        self.assertFalse(track.observe_liveness(face, config))
+        face["mesh_points"][145] = point(35, 30)
+        face["mesh_points"][374] = point(55, 30)
+        self.assertTrue(track.observe_liveness(face, config))
+
+    def test_head_motion_passes_liveness(self):
+        config = replace(self.config, liveness_motion_fraction=0.1)
+        track = Track()
+        point = lambda x, y: {"x": x, "y": y}
+        face = {
+            "x": 20,
+            "y": 10,
+            "width": 50,
+            "height": 70,
+            "mesh_points": [point(0, 0) for _ in range(468)],
+        }
+        for index, value in {
+            1: (45, 40), 33: (30, 35), 133: (40, 35), 362: (50, 35),
+            263: (60, 35), 159: (35, 30), 145: (35, 34),
+            386: (55, 30), 374: (55, 34),
+        }.items():
+            face["mesh_points"][index] = point(*value)
+        self.assertFalse(track.observe_liveness(face, config))
+        face["mesh_points"][1] = point(52, 40)
+        self.assertTrue(track.observe_liveness(face, config))
+
     def test_server_errors_do_not_expose_credentials(self):
         account = self.account()
         with patch.object(

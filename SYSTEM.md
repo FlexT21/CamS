@@ -77,7 +77,11 @@ El sketch está en `micro/CamSAccessReceiver/CamSAccessReceiver.ino`.
 
 La base local y logs están en `.runtime`; los modelos dlib se incluyen en el paquete `face-recognition-models`, fuera de Git. El manifiesto `.runtime/integration-manifest.json` registra los archivos incorporados y el respaldo de archivos reemplazados. No se copiaron entornos virtuales ni la carpeta node_modules del origen: ambos se instalaron dentro del destino.
 
-El reconocimiento no incluye prueba de vida y el conteo depende de trayectorias visibles. Las cuentas y datos están separados por propietario. La precisión debe validarse con la cámara y personas reales del lugar.
+El reconocimiento exige una prueba de vida temporal antes de aceptar una identidad:
+movimiento de la cabeza entre cuadros o un parpadeo medido con FaceMesh. Una
+imagen estática no se reconoce ni genera eventos. El conteo también depende de
+trayectorias visibles. Las cuentas y datos están separados por propietario. La
+precisión debe validarse con la cámara y personas reales del lugar.
 
 ## Conservación de la dinámica anterior
 
