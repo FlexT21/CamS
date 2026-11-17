@@ -63,7 +63,7 @@ Referencia: [conexión PostgreSQL de Supabase](https://supabase.com/docs/guides/
 
 ## Cruces y Arduino
 
-En la imagen visible espejada, igual que en el cliente anterior, izquierda → derecha = entrada (+1); derecha → izquierda = salida (−1). Se conserva el lado e identidad durante retornos. La banda neutra es ±max(10 píxeles, 1.5 % del ancho), y la línea está al 25 % del ancho. Solo cuentan cruces con reconocimiento confirmado; los pendientes esperan mientras vive el track.
+En la imagen visible espejada, igual que en el cliente anterior, izquierda → derecha = entrada (+1); derecha → izquierda = salida (−1). Se conserva el lado e identidad durante retornos. La banda neutra es ±max(10 píxeles, 1.5 % del ancho), y la línea está al 75 % del ancho, a la derecha. Solo cuentan cruces con reconocimiento confirmado; los pendientes esperan mientras vive el track.
 
 El portal web envía `ACCEPTED` más LF cuando la cámara reconoce a una persona y
 se confirma su entrada. Usa COM3 a 9600 baudios durante `scripts/start.ps1`.

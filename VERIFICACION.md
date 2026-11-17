@@ -7,7 +7,7 @@ Revisión de los módulos Python de cliente y servidor, la documentación Markdo
 | Hallazgo anterior | Resultado de la corrección |
 | --- | --- |
 | Derecha → izquierda se consideraba salida | Ahora es entrada; el recorrido contrario es salida |
-| Línea al 82 % del ancho, a la derecha | Línea al 25 %, a la izquierda, configurable |
+| Línea al 25 % del ancho, a la izquierda | Línea al 75 %, a la derecha, configurable |
 | Cruces contabilizados sin identidad | Se exige reconocimiento confirmado; se conservan cruces pendientes mientras vive el track |
 | Bucle OpenCV sin cesión al event loop | La tarea de reconocimiento ahora puede ejecutarse durante la captura |
 | `--interval` no se utilizaba | Regula los reintentos por track |

@@ -381,8 +381,8 @@ export default function Camera({
             aria-label="Detecciones, centroides y línea de acceso"
           >
             <line
-              x1={frame?.line_x || (frame?.width || video.current?.videoWidth || 1280) * 0.25}
-              x2={frame?.line_x || (frame?.width || video.current?.videoWidth || 1280) * 0.25}
+              x1={frame?.line_x || (frame?.width || video.current?.videoWidth || 1280) * 0.75}
+              x2={frame?.line_x || (frame?.width || video.current?.videoWidth || 1280) * 0.75}
               y1="0"
               y2={frame?.height || video.current?.videoHeight || 720}
               stroke="#f6c644"

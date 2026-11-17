@@ -76,7 +76,7 @@ class Config:
     # Coordinates match the mirrored browser video. Moving left to right
     # is entry; the reverse is exit. A narrow neutral band filters jitter.
     line_fraction: float = field(
-        default_factory=lambda: float(os.getenv("CAMS_LINE_FRACTION", "0.25"))
+        default_factory=lambda: float(os.getenv("CAMS_LINE_FRACTION", "0.75"))
     )
     dead_zone_fraction: float = field(
         default_factory=lambda: float(

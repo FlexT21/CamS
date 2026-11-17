@@ -351,7 +351,7 @@ class PortalTests(unittest.TestCase):
             )
             self.assertIsNone(body["tracks"][0]["face"])
             self.assertEqual((body["width"], body["height"]), (100, 100))
-            self.assertEqual(body["line_x"], 25.0)
+            self.assertEqual(body["line_x"], 75.0)
             delivered = [
                 event for call in publish.call_args_list for event in call.args[0]
             ]
@@ -521,7 +521,7 @@ class PortalTests(unittest.TestCase):
         self.portal.monitor = Monitor(self.config, FakeFaces(), FakeTracker)
         directions = []
         with patch.object(self.portal.bridge, "publish_saved") as publish:
-            for center in (10, 50, 50, 10, 10):
+            for center in (10, 90, 90, 10, 10):
                 sessions = self.portal.monitor.sessions
                 if sessions:
                     next(iter(sessions.values())).tracker.center = center
@@ -574,7 +574,7 @@ class PureTests(unittest.TestCase):
             session.tracks[7].recognition_at = -1
             monitor.process(session, "browser", image, persons)
             identity = session.tracks[7]
-            for center in (35, 50, 50, 35, 10, 10, 35, 50):
+            for center in (65, 90, 90, 65, 10, 10, 65, 90):
                 session.tracker.center = center
                 output = monitor.process(session, "browser", image, persons)
                 self.assertEqual(output[0]["user"], "Person")
@@ -605,7 +605,7 @@ class PureTests(unittest.TestCase):
         persons = [{"id": "p1", "name": "Person", "encoding": [1.0, 0.0]}]
         with monitor.session("a", "browser") as session:
             monitor.process(session, "browser", image, persons)
-            session.tracker.center = 60
+            session.tracker.center = 90
             monitor.process(session, "browser", image, persons)
             self.assertEqual(session.pending, [])
             self.assertEqual(len(session.tracks[7].pending_crossings), 1)
