@@ -24,7 +24,7 @@ unsigned long momentoVerificacionCamara = 0;
 
 // Tarjetas autorizadas
 byte Usuario1[4] = {0x04, 0x0F, 0x4B, 0xAC};
-byte Usuario2[4] = {0x08, 0x2F, 0xC7, 0xEC};
+byte Usuario2[7] = {0x05, 0x88, 0xB9, 0x3C, 0x0F, 0xB2, 0x00};
 
 void setup() {
   Serial.begin(9600);
@@ -110,7 +110,7 @@ void revisarTarjeta() {
     (tarjetaEsperada == 1 &&
       comparaUID(LecturaUID, mfrc522.uid.size, Usuario1, 4)) ||
     (tarjetaEsperada == 2 &&
-      comparaUID(LecturaUID, mfrc522.uid.size, Usuario2, 4));
+      comparaUID(LecturaUID, mfrc522.uid.size, Usuario2, 7));
 
   if (!camaraVerificada) {
     accesoDenegado("RFID sin camara verificada");
