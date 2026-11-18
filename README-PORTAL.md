@@ -34,10 +34,7 @@ Este comando crea/verifica `cams_users`, `cams_sessions`, `cams_persons`, `cams_
 
 ## Control de acceso
 
-El portal controla el receptor `COM3` a 9600 baudios. Cada persona recibe un índice de tarjeta según su orden de registro: la primera persona solo puede abrir con `Usuario1`, la segunda con `Usuario2`. El portal envía `ACCEPTED:<índice>` al confirmar una identidad de entrada. Carga
-`micro/CamSAccessReceiver/CamSAccessReceiver.ino` en el Arduino. El portal
-envía `ACCEPTED` al confirmar una identidad de entrada; después la tarjeta RFID
-autorizada habilita el relé.
+Carga `micro/CamSAccessReceiver/CamSAccessReceiver.ino` en el Arduino y conecta el receptor a COM3 a 9600 baudios. Captura las tres fotos y pulsa **Registrar persona**. Cuando se encienda el LED rojo, acerca la tarjeta al lector. El portal guarda el UID junto al rostro. Para las personas anteriores, usa **Vincular tarjeta** en la lista. Al reconocer el rostro, el portal envía `VERIFY:<UID>` y el receptor espera hasta diez segundos la tarjeta vinculada antes de abrir.
 
 ## Verificación
 

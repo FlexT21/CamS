@@ -215,7 +215,7 @@ def persons(
         rows = portal.db.execute(
             conn,
             """SELECT id,name,external_id,created_at,image,
-            ROW_NUMBER() OVER (ORDER BY created_at,id) AS card_slot
+            card_uid IS NOT NULL AS has_card
             FROM cams_persons
             WHERE owner_id=? ORDER BY created_at,id LIMIT ? OFFSET ?""",
             (user["id"], limit, offset),
@@ -229,11 +229,34 @@ def persons(
     for row in rows:
         person = {
             key: row[key]
-            for key in ("id", "name", "external_id", "created_at", "card_slot")
+            for key in ("id", "name", "external_id", "created_at", "has_card")
         }
         person["image"] = thumbnail(row["image"])
         result.append(person)
     return {"persons": result, "total": total, "limit": limit, "offset": offset}
+
+
+@router.post("/persons/{person_id}/card")
+def link_card(person_id: str, user=Depends(authenticated)):
+    portal = get_portal()
+    params = (person_id, user["id"])
+    with portal.db.connect() as conn:
+        row = portal.db.execute(conn, "SELECT card_uid FROM cams_persons WHERE id=? AND owner_id=?", params).fetchone()
+    if row is None:
+        raise HTTPException(404, "Persona no encontrada.")
+    if row["card_uid"]:
+        raise HTTPException(409, "Esta persona ya tiene tarjeta.")
+    uid = portal.bridge.capture_card()
+    try:
+        with portal.db.connect(write=True) as conn:
+            updated = portal.db.execute(conn, "UPDATE cams_persons SET card_uid=? WHERE id=? AND owner_id=? AND card_uid IS NULL", (uid, *params))
+            if not updated.rowcount:
+                raise HTTPException(409, "La persona ya no está pendiente de vinculación.")
+    except Exception as exc:
+        if portal.db.is_integrity_error(exc):
+            raise HTTPException(409, "La tarjeta ya está vinculada.") from None
+        raise
+    return {"has_card": True}
 
 
 @router.post("/persons", status_code=201)

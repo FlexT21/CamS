@@ -41,7 +41,7 @@ comandos mostrados son únicamente para iniciar, detener o validar el servicio.
 2. Registra la persona desde el módulo **Personas**.
 3. Abre **Monitor** y permite el acceso a la cámara.
 4. La página reconoce a la persona antes del cruce.
-5. El portal envía `ACCEPTED\n` al Arduino por `COM3` a 9600 baudios.
+5. El portal envía `VERIFY:<UID>\n` al Arduino por `COM3` a 9600 baudios.
 6. La persona acerca una tarjeta RFID autorizada dentro de 10 segundos.
 7. `CamSAccessReceiver.ino` activa el relé, el LED verde y el buzzer.
 

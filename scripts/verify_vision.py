@@ -36,7 +36,9 @@ def main():
                 account = portal.register('verification@example.test', 'isolated-verification-only', 'Verification')
                 ok,jpeg = cv2.imencode('.jpg',image)
                 assert ok
-                person = portal.enroll(account['user']['id'],'Synthetic fixture','fixture',base64.b64encode(jpeg).decode())
+                from unittest.mock import patch
+                with patch.object(portal.bridge, "capture_card", return_value="00010203"):
+                    person = portal.enroll(account['user']['id'],'Synthetic fixture','fixture',base64.b64encode(jpeg).decode())
                 embedding = engine.embeddings(image)
                 assert len(embedding) == 1
                 assert match(embedding[0],portal.db.encodings(account['user']['id']),config.face_threshold)['id'] == person['id']

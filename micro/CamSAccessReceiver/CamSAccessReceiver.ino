@@ -17,14 +17,9 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 #define RELE_OFF LOW
 #define CONFIRMACION_CAMARA_MS 10000UL
 
-byte LecturaUID[7];
-bool camaraVerificada = false;
-byte tarjetaEsperada = 0;
-unsigned long momentoVerificacionCamara = 0;
-
-// Tarjetas autorizadas
-byte Usuario1[4] = {0x04, 0x0F, 0x4B, 0xAC};
-byte Usuario2[7] = {0x05, 0x88, 0xB9, 0x3C, 0x0F, 0xB2, 0x00};
+String tarjetaEsperada;
+String solicitudRegistro;
+unsigned long momentoSenal = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -60,27 +55,24 @@ void recibirSenalSerial() {
   String signal = Serial.readStringUntil('\n');
   signal.trim();
 
-  if (signal == "ACCEPTED" || signal.startsWith("ACCEPTED:")) {
-    camaraVerificada = true;
-    tarjetaEsperada = signal == "ACCEPTED" ? 0 : signal.substring(9).toInt();
-    momentoVerificacionCamara = millis();
-    digitalWrite(LEDR, LOW);
-    Serial.println("Camara verificada; esperando tarjeta RFID...");
-  } else if (signal == "DENIED") {
-    camaraVerificada = false;
-    tarjetaEsperada = 0;
-    Serial.println("Camara no verificada; esperando una nueva persona...");
+  tarjetaEsperada = "";
+  solicitudRegistro = "";
+  digitalWrite(LEDR, LOW);
+  momentoSenal = millis();
+  if (signal.startsWith("ENROLL:") && signal.length() == 19) {
+    solicitudRegistro = signal.substring(7);
+    digitalWrite(LEDR, HIGH);
+  } else if (signal.startsWith("VERIFY:")) {
+    tarjetaEsperada = signal.substring(7);
   }
 }
 
 void verificarExpiracionCamara() {
-  if (
-    camaraVerificada &&
-    millis() - momentoVerificacionCamara >= CONFIRMACION_CAMARA_MS
-  ) {
-    camaraVerificada = false;
-    tarjetaEsperada = 0;
-    Serial.println("Verificacion de camara expirada");
+  unsigned long elapsed = millis() - momentoSenal;
+  if (elapsed >= CONFIRMACION_CAMARA_MS) tarjetaEsperada = "";
+  if (solicitudRegistro.length() && elapsed >= 20000UL) {
+    solicitudRegistro = "";
+    digitalWrite(LEDR, LOW);
   }
 }
 
@@ -93,28 +85,22 @@ void revisarTarjeta() {
     return;
   }
 
-  Serial.print("UID:");
-  for (byte i = 0; i < mfrc522.uid.size && i < sizeof(LecturaUID); i++) {
-    if (mfrc522.uid.uidByte[i] < 0x10) {
-      Serial.print(" 0");
-    } else {
-      Serial.print(" ");
-    }
-
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-    LecturaUID[i] = mfrc522.uid.uidByte[i];
+  String uid;
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    byte valor = mfrc522.uid.uidByte[i];
+    if (valor < 0x10) uid += '0';
+    uid += String(valor, HEX);
   }
-  Serial.println();
+  uid.toUpperCase();
 
-  bool tarjetaAutorizada =
-    (tarjetaEsperada == 1 &&
-      comparaUID(LecturaUID, mfrc522.uid.size, Usuario1, 4)) ||
-    (tarjetaEsperada == 2 &&
-      comparaUID(LecturaUID, mfrc522.uid.size, Usuario2, 7));
-
-  if (!camaraVerificada) {
-    accesoDenegado("RFID sin camara verificada");
-  } else if (tarjetaAutorizada) {
+  if (solicitudRegistro.length()) {
+    Serial.print("CARD:");
+    Serial.print(solicitudRegistro);
+    Serial.print(':');
+    Serial.println(uid);
+    solicitudRegistro = "";
+    digitalWrite(LEDR, LOW);
+  } else if (uid.length() && uid == tarjetaEsperada) {
     accesoPermitido("RFID");
   } else {
     accesoDenegado("RFID");
@@ -126,8 +112,7 @@ void revisarTarjeta() {
 }
 
 void accesoPermitido(const char* origen) {
-  camaraVerificada = false;
-  tarjetaEsperada = 0;
+  tarjetaEsperada = "";
 
   Serial.print("ACCESO PERMITIDO (");
   Serial.print(origen);
@@ -146,8 +131,7 @@ void accesoPermitido(const char* origen) {
 }
 
 void accesoDenegado(const char* origen) {
-  camaraVerificada = false;
-  tarjetaEsperada = 0;
+  tarjetaEsperada = "";
 
   Serial.print("ACCESO DENEGADO (");
   Serial.print(origen);
@@ -168,23 +152,4 @@ void accesoDenegado(const char* origen) {
 
   delay(700);
   digitalWrite(LEDR, LOW);
-}
-
-boolean comparaUID(
-  byte lectura[],
-  byte lecturaSize,
-  byte usuario[],
-  byte usuarioSize
-) {
-  if (lecturaSize != usuarioSize) {
-    return false;
-  }
-
-  for (byte i = 0; i < lecturaSize; i++) {
-    if (lectura[i] != usuario[i]) {
-      return false;
-    }
-  }
-
-  return true;
 }

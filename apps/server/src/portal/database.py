@@ -98,6 +98,9 @@ class Database:
                     conn.execute(
                         "ALTER TABLE cams_persons ADD COLUMN encoding_engine TEXT NOT NULL DEFAULT 'unknown'"
                     )
+                if "card_uid" not in columns:
+                    conn.execute("ALTER TABLE cams_persons ADD COLUMN card_uid TEXT")
+                conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS cams_persons_card ON cams_persons(card_uid)")
                 if "images" not in columns:
                     conn.execute(
                         "ALTER TABLE cams_persons ADD COLUMN images TEXT NOT NULL DEFAULT '[]'"
@@ -119,8 +122,8 @@ class Database:
             )
 
     def persons(self, owner, conn=None, private=False):
-        columns = "id,name,external_id,created_at,ROW_NUMBER() OVER (ORDER BY created_at,id) AS card_slot" + (
-            ",encoding,encoding_engine,images" if private else ""
+        columns = "id,name,external_id,created_at" + (
+            ",encoding,encoding_engine,images,card_uid" if private else ""
         )
         if conn is None:
             with self.connect() as connection:

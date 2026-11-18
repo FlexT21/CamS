@@ -1,10 +1,15 @@
-"""Best-effort output of committed server-generated access events."""
+"""Serial RFID enrollment, camera authorizations and MQTT crossing events."""
 
 import json
 import logging
 import queue
+import re
+import secrets
 import threading
 import time
+from concurrent.futures import Future
+
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +17,7 @@ logger = logging.getLogger(__name__)
 class EventBridge:
     def __init__(self, config):
         self.config = config
+        self.reader_busy = threading.Lock()
         self.queue = queue.Queue(maxsize=256)
         self.lock = threading.Lock()
         self.thread = None
@@ -68,7 +74,7 @@ class EventBridge:
 
     def publish_access(self, person):
         """Notify the Arduino which registered card must authorize the entry."""
-        if not self.config.serial_port:
+        if not self.config.serial_port or self.reader_busy.locked():
             return
         with self.lock:
             if self.stopping.is_set():
@@ -79,7 +85,8 @@ class EventBridge:
                     {
                         "direction": "entrada",
                         "id": f"camera-access:{person['id']}:{time.monotonic_ns()}",
-                        "card_slot": person.get("card_slot"),
+                        "card_uid": person.get("card_uid"),
+                        "expires": time.monotonic() + 10,
                     }
                 )
             except queue.Full:
@@ -193,12 +200,10 @@ class EventBridge:
             if event["direction"] != "entrada":
                 self.serial_state = "connected"
                 return
-            card_slot = event.get("card_slot")
-            payload = (
-                f"ACCEPTED:{card_slot}\n".encode()
-                if isinstance(card_slot, int) and card_slot > 0
-                else b"ACCEPTED\n"
-            )
+            uid = event.get("card_uid")
+            if time.monotonic() >= event.get("expires", float("inf")):
+                return
+            payload = f"VERIFY:{uid}\n".encode() if uid else b"DENIED\n"
             self.serial.reset_input_buffer()
             if self.serial.write(payload) != len(payload):
                 raise OSError("Incomplete serial write")
@@ -226,6 +231,48 @@ class EventBridge:
                 self.mqtt_state = "disconnected"
             logger.warning("Portal MQTT delivery failed")
 
+    def capture_card(self):
+        if not self.config.serial_port or not self.thread or not self.thread.is_alive():
+            raise HTTPException(503, "El lector RFID no está disponible.")
+        if not self.reader_busy.acquire(blocking=False):
+            raise HTTPException(409, "Otra persona está registrando una tarjeta.")
+        try:
+            result = Future()
+            deadline = time.monotonic() + 20
+            try:
+                self.queue.put_nowait({"capture": result, "deadline": deadline})
+                return result.result(timeout=21)
+            except queue.Full:
+                raise HTTPException(503, "El lector está ocupado.") from None
+            except TimeoutError:
+                raise HTTPException(408, "Se agotó el tiempo para leer la tarjeta.") from None
+        finally:
+            self.reader_busy.release()
+
+    def _read_card(self, deadline):
+        if not self._ensure_serial():
+            raise HTTPException(503, "Comprueba la conexión del lector RFID.")
+        token = secrets.token_hex(6)
+        command = f"ENROLL:{token}\n".encode()
+        try:
+            self.stopping.wait(max(0, self.serial_ready_at - time.monotonic()))
+            if self.stopping.is_set() or time.monotonic() >= deadline:
+                raise HTTPException(408, "La lectura de tarjeta expiró.")
+            self.serial.reset_input_buffer()
+            if self.serial.write(command) != len(command):
+                raise OSError("Incomplete serial write")
+            prefix = f"CARD:{token}:".encode()
+            while time.monotonic() < deadline and not self.stopping.is_set():
+                line = self.serial.readline().rstrip(b"\r\n")
+                if time.monotonic() < deadline and line.startswith(prefix):
+                    uid = line[len(prefix):]
+                    if re.fullmatch(b"(?:[0-9A-F]{8}|[0-9A-F]{14}|[0-9A-F]{20})", uid):
+                        return uid.decode("ascii")
+            raise HTTPException(408, "No se leyó la tarjeta a tiempo. Vuelve a intentarlo.")
+        except OSError:
+            self._close_serial()
+            raise HTTPException(503, "Se perdió la conexión con el lector RFID.") from None
+
     def _run(self):
         try:
             while not self.stopping.is_set():
@@ -236,8 +283,16 @@ class EventBridge:
                 except queue.Empty:
                     continue
                 try:
-                    self._serial_event(event)
-                    if not self.stopping.is_set():
+                    if "capture" in event:
+                        try:
+                            uid = self._read_card(event["deadline"])
+                        except Exception as exc:
+                            event["capture"].set_exception(exc)
+                        else:
+                            event["capture"].set_result(uid)
+                    elif "card_uid" in event:
+                        self._serial_event(event)
+                    elif not self.stopping.is_set():
                         self._mqtt_event(event)
                 finally:
                     self.queue.task_done()

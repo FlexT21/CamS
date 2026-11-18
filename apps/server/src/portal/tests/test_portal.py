@@ -71,6 +71,11 @@ class PortalTests(unittest.TestCase):
         )
         self.portal = service.Portal(self.config)
         self.portal.db.initialize()
+        from uuid import uuid4
+
+        capture = patch.object(self.portal.bridge, "capture_card", side_effect=lambda: uuid4().hex[:14].upper())
+        self.capture = capture.start()
+        self.addCleanup(capture.stop)
         self.previous = service._portal
         service._portal = self.portal
         app = FastAPI()
@@ -202,6 +207,28 @@ class PortalTests(unittest.TestCase):
             ).fetchone()
             self.assertIsInstance(row["image"], bytes)
             self.assertEqual(json.loads(row["encoding"]), [1.0, 0.0])
+
+    def test_card_is_unique_and_legacy_person_can_link_once(self):
+        first, second = self.account(), self.account("second@example.com")
+        self.capture.side_effect = None
+        self.capture.return_value = "00010203"
+        person = self.enroll(first).json()
+        self.assertEqual(self.enroll(second).status_code, 409)
+        self.assertEqual(self.portal.db.persons(second["user"]["id"]), [])
+        owner = first["user"]["id"]
+        self.assertEqual(self.portal.db.encodings(owner)[0]["card_uid"], "00010203")
+        with self.portal.db.connect(write=True) as conn:
+            conn.execute("UPDATE cams_persons SET card_uid=NULL WHERE id=?", (person["id"],))
+        url = f"/api/portal/persons/{person['id']}/card"
+        self.assertEqual(self.client.post(url, headers=self.headers(second)).status_code, 404)
+        self.assertEqual(self.client.post(url, headers=self.headers(first)).status_code, 200)
+        self.assertEqual(self.client.post(url, headers=self.headers(first)).status_code, 409)
+
+    def test_card_timeout_creates_no_person(self):
+        account = self.account()
+        self.capture.side_effect = HTTPException(408, "Lectura expirada")
+        self.assertEqual(self.enroll(account).status_code, 408)
+        self.assertEqual(self.portal.db.persons(account["user"]["id"]), [])
 
     def test_enrollment_requires_exactly_one_face(self):
         account = self.account()
@@ -835,7 +862,7 @@ class PureTests(unittest.TestCase):
         bridge = EventBridge(Config(database_url="", serial_port="test", mqtt_host=""))
         device = MagicMock()
         device.is_open = True
-        device.write.return_value = 9
+        device.write.side_effect = len
         with (
             patch("serial.Serial", return_value=device),
             patch("src.portal.bridge.time.monotonic", return_value=100),
@@ -845,7 +872,7 @@ class PureTests(unittest.TestCase):
             device.write.assert_not_called()
             bridge._serial_event({"direction": "entrada"})
             wait.assert_called_once_with(2)
-            device.write.assert_called_once_with(b"ACCEPTED\n")
+            device.write.assert_called_once_with(b"DENIED\n")
         bridge.close()
 
     def test_connection_failures_throttle_retry(self):
@@ -878,18 +905,34 @@ class PureTests(unittest.TestCase):
             self.assertEqual(bridge.status()["mqtt"], "disconnected")
         bridge.close()
 
+    def test_capture_uses_only_current_request_and_full_uid(self):
+        from unittest.mock import MagicMock
+
+        bridge = EventBridge(Config(database_url="", serial_port="test", mqtt_host=""))
+        bridge.serial = MagicMock()
+        bridge.serial.write.side_effect = len
+        for uid in ("00010203", "00010203040506", "00010203040506070809"):
+            bridge.serial.readline.side_effect = [
+                b"CARD:previous:12345678\r\n", b"CARD:current:12345\r\n",
+                f"CARD:current:{uid}\r\n".encode(),
+            ]
+            with patch("src.portal.bridge.secrets.token_hex", return_value="current"):
+                self.assertEqual(bridge._read_card(time.monotonic() + 1), uid)
+            bridge.serial.write.assert_called_with(b"ENROLL:current\n")
+
     def test_serial_wire_protocol(self):
         from unittest.mock import MagicMock
 
         bridge = EventBridge(Config(database_url="", serial_port="test", mqtt_host=""))
         bridge.serial = MagicMock()
-        bridge.serial.write.return_value = 9
+        bridge.serial.write.side_effect = len
         bridge._serial_event({"direction": "entrada"})
+        bridge._serial_event({"direction": "entrada", "card_uid": "00010203"})
         bridge._serial_event({"direction": "salida"})
         self.assertEqual(bridge.status()["serial"], "connected")
         self.assertEqual(
             [call.args[0] for call in bridge.serial.write.call_args_list],
-            [b"ACCEPTED\n"],
+            [b"DENIED\n", b"VERIFY:00010203\n"],
         )
         bridge.close()
 

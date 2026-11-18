@@ -113,6 +113,7 @@ class Portal:
             if len(values) != 1:
                 raise HTTPException(422, "Each enrollment photo requires exactly one face")
             encodings.append(values[0])
+        card_uid = self.bridge.capture_card()
         person = {
             "id": str(uuid.uuid4()),
             "name": name,
@@ -143,8 +144,8 @@ class Portal:
                 self.db.execute(
                     conn,
                     """INSERT INTO cams_persons
-                    (id,owner_id,name,external_id,image,images,encoding,encoding_engine,created_at)
-                    VALUES (?,?,?,?,?,?,?,'face_recognition_dlib',?)""",
+                    (id,owner_id,name,external_id,image,images,encoding,encoding_engine,created_at,card_uid)
+                    VALUES (?,?,?,?,?,?,?,'face_recognition_dlib',?,?)""",
                     (
                         person["id"],
                         owner,
@@ -162,11 +163,12 @@ class Portal:
                             allow_nan=False,
                         ),
                         person["created_at"],
+                        card_uid,
                     ),
                 )
         except Exception as exc:
             if self.db.is_integrity_error(exc):
-                raise HTTPException(409, "External ID is already enrolled") from None
+                raise HTTPException(409, "La tarjeta o el identificador ya están registrados.") from None
             raise
         return person
 

@@ -69,7 +69,7 @@ def match(embedding, persons, threshold):
     return {
         "id": person["id"],
         "name": person["name"],
-        "card_slot": person.get("card_slot"),
+        "card_uid": person.get("card_uid"),
     }
 
 

@@ -43,6 +43,7 @@ type Person = {
   name?: string;
   full_name?: string;
   external_id?: string;
+  has_card?: boolean;
   created_at?: string | number;
   image?: string;
 };
@@ -624,6 +625,21 @@ function Dashboard({
   const [status, setStatus] = useState<string>("Consultando");
   const [services, setServices] = useState<ServiceStatus | null>(null);
   const [personOffset, setPersonOffset] = useState(0);
+  const [linkingCard, setLinkingCard] = useState(false);
+  const [cardMessage, setCardMessage] = useState("");
+  async function linkCard(person: Person) {
+    setLinkingCard(true);
+    setCardMessage(`Cuando se encienda el LED rojo, acerca la tarjeta de ${person.name}.`);
+    try {
+      await api(`/persons/${person.id}/card`, { method: "POST", signal: AbortSignal.timeout(30000) });
+      setCardMessage(`Tarjeta vinculada a ${person.name}.`);
+      refresh();
+    } catch (err) {
+      setCardMessage(errorMessage(err));
+    } finally {
+      setLinkingCard(false);
+    }
+  }
   const [personTotal, setPersonTotal] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -1065,6 +1081,7 @@ function Dashboard({
                     <tr>
                       <th>Persona</th>
                       <th>Identificador</th>
+                      <th>Tarjeta RFID</th>
                       <th>Fecha de registro</th>
                     </tr>
                   </thead>
@@ -1098,12 +1115,18 @@ function Dashboard({
                             {person.external_id || "—"}
                           </span>
                         </td>
+                        <td>{person.has_card ? "Vinculada" : (
+                          <button type="button" disabled={linkingCard} onClick={() => linkCard(person)}>
+                            Vincular tarjeta
+                          </button>
+                        )}</td>
                         <td>{formatDate(person.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {cardMessage && <p role="status">{cardMessage}</p>}
               {!shownPersons.length && (
                 <Empty
                   icon="users"
@@ -1346,10 +1369,10 @@ function Enrollment({
     saving.current = true;
     setBusy(true);
     onNotice({
-      text: "Guardando registro. Espera la confirmación del servidor…",
+      text: "Cuando se encienda el LED rojo del lector, acerca la tarjeta de esta persona.",
     });
     controller.current = new AbortController();
-    const timeout = setTimeout(() => controller.current?.abort(), 20000);
+    const timeout = setTimeout(() => controller.current?.abort(), 60000);
     try {
       await api("/persons", {
         method: "POST",
@@ -1365,7 +1388,7 @@ function Enrollment({
       const message = controller.current?.signal.aborted
         ? "El registro tardó demasiado. Verifica la lista antes de volver a enviarlo."
         : (err as { status?: number }).status === 409
-          ? `No se pudo crear el registro: ${errorMessage(err)} Revisa el identificador antes de volver a enviarlo.`
+          ? `No se pudo crear el registro: ${errorMessage(err)} Comprueba los datos y la tarjeta.`
           : errorMessage(err);
       setError(message);
       onNotice({ text: message, error: true });
@@ -1468,7 +1491,7 @@ function Enrollment({
         </button>
         <p className="form-note">
           <LockKeyhole size={13} />
-          La fotografía se envía al guardar el registro.
+          Al registrar, espera a que se encienda el LED rojo y acerca la tarjeta RFID.
         </p>
       </form>
     </section>
