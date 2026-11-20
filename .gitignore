@@ -18,3 +18,4 @@ entrega/
 **/dist/
 **/__pycache__/
 **/*.tsbuildinfo
+coverage/
