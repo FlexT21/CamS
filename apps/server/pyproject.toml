@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ruff>=0.14.13"]
+dev = ["coverage>=7.6", "ruff>=0.14.13"]
 
 [tool.ruff]
 exclude = [".git", ".ipynb_checkpoints", ".pytest_cache", ".venv"]

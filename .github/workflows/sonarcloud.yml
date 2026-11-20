@@ -23,6 +23,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Run Python tests with coverage
+        working-directory: apps/server
+        run: |
+          uv sync --group dev
+          mkdir -p ../../coverage
+          uv run coverage run --branch --source=src -m unittest discover -s src/portal/tests -t .
+          uv run coverage xml -o ../../coverage/python-coverage.xml
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run web tests with coverage
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run test:coverage
+          mv ../../coverage/lcov.info ../../coverage/web-lcov.info
+
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
