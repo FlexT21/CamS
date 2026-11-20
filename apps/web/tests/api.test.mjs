@@ -40,10 +40,12 @@ test('portal requests use the exact prefix, bearer header, JSON body and abort s
     assert.equal(calls[1].options.headers.Authorization, undefined);
     await request('/monitor/frame', { token: 'test-token', method: 'POST', body: { image: body.image, session_id: 'session-1' } });
     assert.deepEqual(JSON.parse(calls[2].options.body), { image: body.image, session_id: 'session-1' });
-    await request('/persons?limit=50&offset=100');
-    assert.equal(calls[3].url, '/api/portal/persons?limit=50&offset=100');
-    await request('/persons/p-123/card', { method: 'POST' });
-    assert.equal(calls[4].url, '/api/portal/persons/p-123/card');
+    await request('/persons/page', { method: 'POST', body: { offset: 100 } });
+    assert.equal(calls[3].url, '/api/portal/persons/page');
+    assert.deepEqual(JSON.parse(calls[3].options.body), { offset: 100 });
+    await request('/persons/card', { method: 'POST', body: { person_id: 'p-123' } });
+    assert.equal(calls[4].url, '/api/portal/persons/card');
+    assert.deepEqual(JSON.parse(calls[4].options.body), { person_id: 'p-123' });
   } finally { globalThis.fetch = original; }
 });
 

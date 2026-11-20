@@ -631,7 +631,11 @@ function Dashboard({
     setLinkingCard(true);
     setCardMessage(`Cuando se encienda el LED rojo, acerca la tarjeta de ${person.name}.`);
     try {
-      await api(`/persons/${person.id}/card`, { method: "POST", signal: AbortSignal.timeout(30000) });
+      await api("/persons/card", {
+        method: "POST",
+        body: { person_id: person.id },
+        signal: AbortSignal.timeout(30000),
+      });
       setCardMessage(`Tarjeta vinculada a ${person.name}.`);
       refresh();
     } catch (err) {
@@ -668,12 +672,9 @@ function Dashboard({
       ]);
       const results = await Promise.allSettled(
         resources.map((resource) =>
-          api(
-            resource === "persons"
-              ? `/persons?limit=50&offset=${personOffset}`
-              : `/${resource}`,
-            { signal },
-          ),
+          resource === "persons"
+            ? api("/persons/page", { method: "POST", body: { offset: personOffset }, signal })
+            : api(`/${resource}`, { signal }),
         ),
       );
       if (controller.signal.aborted) return;

@@ -34,28 +34,19 @@ export class ApiError extends Error {
   }
 }
 
-const portalRoutes = new Map(
-  ["/auth/register", "/auth/login", "/auth/logout", "/me", "/persons",
-    "/events", "/stats", "/status", "/monitor/frame"]
-    .map(route => [route, API_PREFIX + route]),
-);
-
-function apiUrl(path) {
-  const fixedRoute = portalRoutes.get(path);
-  if (fixedRoute) return fixedRoute;
-  if (typeof path === "string") {
-    const card = /^\/persons\/([A-Za-z0-9_-]+)\/card$/.exec(path);
-    if (card) return `${API_PREFIX}/persons/${encodeURIComponent(card[1])}/card`;
-
-    const page = /^(\/persons|\/events)\?((?:limit|offset)=[0-9]+(?:&(?:limit|offset)=[0-9]+)?)$/.exec(path);
-    if (page) {
-      const params = new URLSearchParams(page[2]);
-      if (params.getAll("limit").length <= 1 && params.getAll("offset").length <= 1)
-        return `${portalRoutes.get(page[1])}?${params}`;
-    }
-  }
-  throw new TypeError("La ruta de la API no es válida.");
-}
+const portalRoutes = new Map([
+  ["/auth/register", options => fetch(API_PREFIX + "/auth/register", options)],
+  ["/auth/login", options => fetch(API_PREFIX + "/auth/login", options)],
+  ["/auth/logout", options => fetch(API_PREFIX + "/auth/logout", options)],
+  ["/me", options => fetch(API_PREFIX + "/me", options)],
+  ["/persons", options => fetch(API_PREFIX + "/persons", options)],
+  ["/persons/page", options => fetch(API_PREFIX + "/persons/page", options)],
+  ["/persons/card", options => fetch(API_PREFIX + "/persons/card", options)],
+  ["/events", options => fetch(API_PREFIX + "/events", options)],
+  ["/stats", options => fetch(API_PREFIX + "/stats", options)],
+  ["/status", options => fetch(API_PREFIX + "/status", options)],
+  ["/monitor/frame", options => fetch(API_PREFIX + "/monitor/frame", options)],
+]);
 
 /** @param {string} path
  * @param {{token?: string, method?: string, body?: unknown, signal?: AbortSignal}} options */
@@ -63,7 +54,9 @@ export async function request(
   path,
   { token, method = "GET", body, signal } = {},
 ) {
-  const response = await fetch(apiUrl(path), {
+  const send = portalRoutes.get(path);
+  if (!send) throw new TypeError("La ruta de la API no es válida.");
+  const response = await send({
     method,
     signal,
     mode: "same-origin",

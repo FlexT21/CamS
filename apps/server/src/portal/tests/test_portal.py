@@ -201,6 +201,12 @@ class PortalTests(unittest.TestCase):
         self.assertNotEqual(own["persons"][0]["id"], other["persons"][0]["id"])
         self.assertNotIn("encoding", json.dumps(own))
         self.assertNotIn("owner_id", json.dumps(own))
+        page_url = "/api/portal/persons/page"
+        page = self.client.post(page_url, headers=self.headers(a), json={"offset": 0})
+        self.assertEqual(page.json(), own)
+        next_page = self.client.post(page_url, headers=self.headers(a), json={"offset": 1})
+        self.assertEqual(next_page.json()["persons"], [])
+        self.assertEqual(self.client.post(page_url, headers=self.headers(a), json={"offset": -1}).status_code, 422)
         with self.portal.db.connect() as conn:
             row = self.portal.db.execute(
                 conn, "SELECT image,encoding FROM cams_persons LIMIT 1"
@@ -221,7 +227,10 @@ class PortalTests(unittest.TestCase):
             conn.execute("UPDATE cams_persons SET card_uid=NULL WHERE id=?", (person["id"],))
         url = f"/api/portal/persons/{person['id']}/card"
         self.assertEqual(self.client.post(url, headers=self.headers(second)).status_code, 404)
-        self.assertEqual(self.client.post(url, headers=self.headers(first)).status_code, 200)
+        card_url = "/api/portal/persons/card"
+        payload = {"person_id": person["id"]}
+        self.assertEqual(self.client.post(card_url, headers=self.headers(second), json=payload).status_code, 404)
+        self.assertEqual(self.client.post(card_url, headers=self.headers(first), json=payload).status_code, 200)
         self.assertEqual(self.client.post(url, headers=self.headers(first)).status_code, 409)
 
     def test_card_timeout_creates_no_person(self):

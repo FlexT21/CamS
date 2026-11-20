@@ -140,6 +140,15 @@ class Frame(Input):
     session_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
+class PersonPage(Input):
+    limit: int = Field(default=50, ge=1, le=100)
+    offset: int = Field(default=0, ge=0, le=100_000)
+
+
+class CardLink(Input):
+    person_id: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
+
+
 def authenticated(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
     if (
         credentials is None
@@ -257,6 +266,16 @@ def link_card(person_id: str, user=Depends(authenticated)):
             raise HTTPException(409, "La tarjeta ya está vinculada.") from None
         raise
     return {"has_card": True}
+
+
+@router.post("/persons/card")
+def link_person_card(payload: CardLink, user=Depends(authenticated)):
+    return link_card(payload.person_id, user)
+
+
+@router.post("/persons/page")
+def person_page(payload: PersonPage, user=Depends(authenticated)):
+    return persons(limit=payload.limit, offset=payload.offset, user=user)
 
 
 @router.post("/persons", status_code=201)
