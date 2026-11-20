@@ -3,10 +3,6 @@
 !.python-version
 !.env.example
 !.gitignore
-!.github/
-!.github/workflows/
-!.github/workflows/*.yml
-!.github/workflows/*.yaml
 !.vscode/
 !.dockerignore
 
