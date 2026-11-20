@@ -28,6 +28,7 @@ test('portal requests use the exact prefix, bearer header, JSON body and abort s
     const body = { name: 'Ana López', external_id: 'A-101', image: 'data:image/jpeg;base64,abc' };
     await request('/persons', { token: 'test-token', method: 'POST', body, signal: controller.signal });
     assert.equal(calls[0].url, '/api/portal/persons');
+    assert.equal(calls[0].options.credentials, 'omit');
     assert.equal(calls[0].options.headers.Authorization, 'Bearer test-token');
     assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
     assert.deepEqual(JSON.parse(calls[0].options.body), body);
@@ -37,6 +38,18 @@ test('portal requests use the exact prefix, bearer header, JSON body and abort s
     assert.equal(calls[1].options.headers.Authorization, undefined);
     await request('/monitor/frame', { token: 'test-token', method: 'POST', body: { image: body.image, session_id: 'session-1' } });
     assert.deepEqual(JSON.parse(calls[2].options.body), { image: body.image, session_id: 'session-1' });
+  } finally { globalThis.fetch = original; }
+});
+
+test('portal requests reject paths that can escape the API prefix', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error('fetch should not be called');
+  };
+  try {
+    for (const path of ['https://evil.example/', '//evil.example/', '/../admin', '/\\evil']) {
+      await assert.rejects(request(path), /ruta de la API no es válida/);
+    }
   } finally { globalThis.fetch = original; }
 });
 

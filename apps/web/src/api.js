@@ -34,15 +34,37 @@ export class ApiError extends Error {
   }
 }
 
+function apiUrl(path) {
+  if (
+    typeof path !== "string" ||
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    path.includes("\\") ||
+    /[\u0000-\u001f\u007f]/.test(path)
+  ) {
+    throw new TypeError("La ruta de la API no es válida.");
+  }
+  const origin = globalThis.location?.origin ?? "http://localhost";
+  const url = new URL(`${API_PREFIX}${path}`, origin);
+  if (
+    url.origin !== origin ||
+    !url.pathname.startsWith(`${API_PREFIX}/`)
+  ) {
+    throw new TypeError("La ruta de la API no es válida.");
+  }
+  return `${API_PREFIX}${path}`;
+}
+
 /** @param {string} path
  * @param {{token?: string, method?: string, body?: unknown, signal?: AbortSignal}} options */
 export async function request(
   path,
   { token, method = "GET", body, signal } = {},
 ) {
-  const response = await fetch(`${API_PREFIX}${path}`, {
+  const response = await fetch(apiUrl(path), {
     method,
     signal,
+    credentials: "omit",
     headers: {
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
