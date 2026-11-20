@@ -2,7 +2,7 @@
 
 La documentación y los comandos se
 refieren a la raíz del repositorio actual; no dependen de una ruta fija.
-
+ 
 ## Componentes y motores
 
 | Componente | Implementación |
