@@ -34,25 +34,27 @@ export class ApiError extends Error {
   }
 }
 
+const portalRoutes = new Map(
+  ["/auth/register", "/auth/login", "/auth/logout", "/me", "/persons",
+    "/events", "/stats", "/status", "/monitor/frame"]
+    .map(route => [route, API_PREFIX + route]),
+);
+
 function apiUrl(path) {
-  if (
-    typeof path !== "string" ||
-    !path.startsWith("/") ||
-    path.startsWith("//") ||
-    path.includes("\\") ||
-    /[\u0000-\u001f\u007f]/.test(path)
-  ) {
-    throw new TypeError("La ruta de la API no es válida.");
+  const fixedRoute = portalRoutes.get(path);
+  if (fixedRoute) return fixedRoute;
+  if (typeof path === "string") {
+    const card = /^\/persons\/([A-Za-z0-9_-]+)\/card$/.exec(path);
+    if (card) return `${API_PREFIX}/persons/${encodeURIComponent(card[1])}/card`;
+
+    const page = /^(\/persons|\/events)\?((?:limit|offset)=[0-9]+(?:&(?:limit|offset)=[0-9]+)?)$/.exec(path);
+    if (page) {
+      const params = new URLSearchParams(page[2]);
+      if (params.getAll("limit").length <= 1 && params.getAll("offset").length <= 1)
+        return `${portalRoutes.get(page[1])}?${params}`;
+    }
   }
-  const origin = globalThis.location?.origin ?? "http://localhost";
-  const url = new URL(`${API_PREFIX}${path}`, origin);
-  if (
-    url.origin !== origin ||
-    !url.pathname.startsWith(`${API_PREFIX}/`)
-  ) {
-    throw new TypeError("La ruta de la API no es válida.");
-  }
-  return `${API_PREFIX}${path}`;
+  throw new TypeError("La ruta de la API no es válida.");
 }
 
 /** @param {string} path
@@ -64,6 +66,8 @@ export async function request(
   const response = await fetch(apiUrl(path), {
     method,
     signal,
+    mode: "same-origin",
+    redirect: "error",
     credentials: "omit",
     headers: {
       Accept: "application/json",

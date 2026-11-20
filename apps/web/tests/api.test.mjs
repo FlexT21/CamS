@@ -29,6 +29,8 @@ test('portal requests use the exact prefix, bearer header, JSON body and abort s
     await request('/persons', { token: 'test-token', method: 'POST', body, signal: controller.signal });
     assert.equal(calls[0].url, '/api/portal/persons');
     assert.equal(calls[0].options.credentials, 'omit');
+    assert.equal(calls[0].options.mode, 'same-origin');
+    assert.equal(calls[0].options.redirect, 'error');
     assert.equal(calls[0].options.headers.Authorization, 'Bearer test-token');
     assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
     assert.deepEqual(JSON.parse(calls[0].options.body), body);
@@ -38,16 +40,22 @@ test('portal requests use the exact prefix, bearer header, JSON body and abort s
     assert.equal(calls[1].options.headers.Authorization, undefined);
     await request('/monitor/frame', { token: 'test-token', method: 'POST', body: { image: body.image, session_id: 'session-1' } });
     assert.deepEqual(JSON.parse(calls[2].options.body), { image: body.image, session_id: 'session-1' });
+    await request('/persons?limit=50&offset=100');
+    assert.equal(calls[3].url, '/api/portal/persons?limit=50&offset=100');
+    await request('/persons/p-123/card', { method: 'POST' });
+    assert.equal(calls[4].url, '/api/portal/persons/p-123/card');
   } finally { globalThis.fetch = original; }
 });
 
-test('portal requests reject paths that can escape the API prefix', async () => {
+test('portal requests reject unknown routes and malformed parameters before fetching', async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async () => {
     throw new Error('fetch should not be called');
   };
   try {
-    for (const path of ['https://evil.example/', '//evil.example/', '/../admin', '/\\evil']) {
+    for (const path of ['https://evil.example/', '//evil.example/', '/../admin', '/\\evil',
+      '/unknown', '/persons/a/b/card', '/persons?offset=invalid', '/persons?other=1',
+      '/persons?limit=1&limit=2', '/auth/login#extra']) {
       await assert.rejects(request(path), /ruta de la API no es válida/);
     }
   } finally { globalThis.fetch = original; }
